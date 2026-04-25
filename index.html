@@ -3,51 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>GPS Stealth Shield v2.0</title>
+    <title>GPS Stealth Shield v3.0</title>
     <style>
-        body { 
-            background: #0a0a0a; 
-            color: #00ff41; 
-            font-family: 'Courier New', monospace; 
-            text-align: center; 
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100vh;
-        }
-        .container {
-            border: 2px solid #00ff41;
-            margin: 20px;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-        }
-        h1 { font-size: 24px; letter-spacing: 2px; }
-        .loc-info {
-            background: rgba(0, 255, 65, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
+        body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; }
+        .container { border: 2px solid #00ff41; margin: 20px; padding: 30px; border-radius: 15px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); }
+        .loc-info { background: rgba(0, 255, 65, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 25px; }
         #target { color: #ffcc00; font-weight: bold; }
-        .btn { 
-            background: transparent; 
-            border: 2px solid #00ff41; 
-            color: #00ff41; 
-            padding: 20px 40px; 
-            font-size: 20px; 
-            font-weight: bold;
-            border-radius: 50px; 
-            cursor: pointer; 
-            text-transform: uppercase;
-            transition: all 0.3s;
-        }
-        .btn:active { 
-            background: #00ff41; 
-            color: #000; 
-            box-shadow: 0 0 30px #00ff41;
-        }
+        .btn { background: transparent; border: 2px solid #00ff41; color: #00ff41; padding: 20px 40px; font-size: 20px; font-weight: bold; border-radius: 50px; cursor: pointer; text-transform: uppercase; transition: all 0.3s; }
+        .btn:active { background: #00ff41; color: #000; box-shadow: 0 0 30px #00ff41; }
         #status { margin-top: 20px; font-size: 14px; color: #888; }
         .blink { animation: blinker 1.5s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
@@ -57,58 +20,57 @@
 
     <div class="container">
         <h1>GPS STEALTH SHIELD</h1>
-        
         <div class="loc-info">
             <p>টার্গেট জোন:</p>
             <p id="target">341 9th St, Brooklyn, NY 11215</p>
         </div>
-
         <button class="btn" onclick="activateShield()">Activate Shield</button>
-        
-        <p id="status" class="">System Status: Ready...</p>
+        <p id="status">System Status: Waiting for Authorization...</p>
     </div>
 
     <script>
         function activateShield() {
-            // টার্গেট কোঅর্ডিনেট (341 9th St)
+            // ১. ট্রিগার: আইফোনকে বাধ্য করা পারমিশন চাওয়ার জন্য
+            navigator.geolocation.getCurrentPosition((pos) => {
+                startSpoofing(); // পারমিশন পেলে আসল হ্যাক শুরু হবে
+            }, (err) => {
+                alert("ভুল: অনুগ্রহ করে সাফারিতে লোকেশন 'Allow' করুন। সেটিংস চেক করুন।");
+            });
+        }
+
+        function startSpoofing() {
             const lat = 40.670543; 
             const lng = -73.987114;
 
             document.getElementById('status').innerText = "INJECTING FAKE DATA...";
             document.getElementById('status').classList.add('blink');
 
-            if ("geolocation" in navigator) {
-                // ব্রাউজারকে বাধ্য করা ফেক ডাটা দেখানোর জন্য
-                const spoofLocation = (success) => {
-                    success({
-                        coords: { 
-                            latitude: lat, 
-                            longitude: lng, 
-                            accuracy: 3, // হাই একুরেসি (৩ মিটার)
-                            altitude: 15,
-                            heading: null,
-                            speed: 0
-                        },
-                        timestamp: Date.now()
-                    });
-                };
+            const spoofLocation = (success) => {
+                success({
+                    coords: { 
+                        latitude: lat, 
+                        longitude: lng, 
+                        accuracy: 3, 
+                        altitude: 15,
+                        heading: null,
+                        speed: 0
+                    },
+                    timestamp: Date.now()
+                });
+            };
 
-                // getCurrentPosition ওভাররাইড
-                navigator.geolocation.getCurrentPosition = spoofLocation;
+            // সিস্টেম ফাংশনগুলো ওভাররাইড করা
+            navigator.geolocation.getCurrentPosition = spoofLocation;
+            navigator.geolocation.watchPosition = spoofLocation;
 
-                // watchPosition ওভাররাইড (অ্যাপ রিফ্রেশ হলে কাজ করবে)
-                navigator.geolocation.watchPosition = spoofLocation;
-
-                // প্রতি ২ সেকেন্ড পর পর সিগন্যাল রিফ্রেশ করা
-                setInterval(() => {
-                    navigator.geolocation.getCurrentPosition(spoofLocation);
-                }, 2000);
-            }
+            // প্রতি ১ সেকেন্ডে ডেটা পুশ করা
+            setInterval(() => {
+                navigator.geolocation.getCurrentPosition(spoofLocation);
+            }, 1000);
 
             setTimeout(() => {
-                document.getElementById('status').innerText = "SHIELD ACTIVE: System Masked";
+                document.getElementById('status').innerText = "SHIELD ACTIVE: Location Locked at 9th St";
                 document.getElementById('status').style.color = "#ff3333";
-                alert("GPS Shield সফলভাবে সক্রিয় হয়েছে!\nএখন এই ট্যাবটি ব্যাকগ্রাউন্ডে রেখে ডেলিভারি অ্যাপ চেক করুন।");
             }, 2000);
         }
     </script>
