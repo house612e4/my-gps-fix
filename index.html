@@ -1,27 +1,58 @@
-function activateShield() {
-    // আপনার টার্গেট লোকেশন: 341 9th St, Brooklyn
-    const lat = 40.6705; 
-    const lng = -73.9871;
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Shield v1.0</title>
+    <style>
+        body { background: #121212; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
+        .status-box { border: 1px solid #00ff00; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .btn { 
+            background: none; border: 2px solid #00ff00; color: #00ff00; 
+            padding: 15px 30px; font-size: 18px; border-radius: 50px; 
+            cursor: pointer; box-shadow: 0 0 10px #00ff00;
+        }
+        .btn:active { background: #00ff00; color: #000; }
+        #coords { font-weight: bold; color: #ffcc00; }
+    </style>
+</head>
+<body>
 
-    document.getElementById('msg').innerText = "সিগন্যাল ওভাররাইড করা হচ্ছে...";
+    <h1>GPS SHIELD V1.0</h1>
+    <div class="status-box">
+        <p>টার্গেট লোকেশন: <span id="coords">341 9th St, Brooklyn</span></p>
+        <p id="msg">সিস্টেম রেডি...</p>
+    </div>
 
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition = function(success) {
-            success({
-                coords: { latitude: lat, longitude: lng, accuracy: 5 },
-                timestamp: Date.now()
-            });
-        };
+    <button class="btn" onclick="activateShield()">ACTIVATE SHIELD</button>
 
-        navigator.geolocation.watchPosition = function(success) {
-            success({
-                coords: { latitude: lat, longitude: lng, accuracy: 5 },
-                timestamp: Date.now()
-            });
-        };
-    }
+    <script>
+        function activateShield() {
+            // আপনার টার্গেট লোকেশন: 341 9th St, Brooklyn
+            const lat = 40.6705; 
+            const lng = -73.9871;
 
-    document.getElementById('msg').innerText = "Shield Active! আপনি এখন 341 9th St-এ আছেন।";
-    document.getElementById('msg').style.color = "#ff3333";
-    document.getElementById('coords').innerText = "341 9th St, Brooklyn";
-}
+            document.getElementById('msg').innerText = "সিগন্যাল ওভাররাইড করা হচ্ছে...";
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition = function(success) {
+                    success({
+                        coords: { latitude: lat, longitude: lng, accuracy: 5 },
+                        timestamp: Date.now()
+                    });
+                };
+
+                navigator.geolocation.watchPosition = function(success) {
+                    success({
+                        coords: { latitude: lat, longitude: lng, accuracy: 5 },
+                        timestamp: Date.now()
+                    });
+                };
+            }
+
+            document.getElementById('msg').innerText = "Shield Active! আপনি এখন 9th St-এ আছেন।";
+            document.getElementById('msg').style.color = "#ff3333";
+        }
+    </script>
+</body>
+</html>
