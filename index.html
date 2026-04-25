@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Shield Control</title>
+    <style>
+        body { background: #121212; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
+        .status-box { border: 1px solid #00ff00; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .btn { 
+            background: none; border: 2px solid #00ff00; color: #00ff00; 
+            padding: 15px 30px; font-size: 18px; border-radius: 50px; 
+            cursor: pointer; box-shadow: 0 0 10px #00ff00;
+        }
+        .btn:active { background: #00ff00; color: #000; }
+        #coords { font-weight: bold; color: #ffcc00; }
+    </style>
+</head>
+<body>
+
+    <h1>GPS SHIELD V1.0</h1>
+    <div class="status-box">
+        <p>টার্গেট লোকেশন: <span id="coords">বাসা (Home)</span></p>
+        <p id="msg">সিস্টেম রেডি...</p>
+    </div>
+
+    <button class="btn" onclick="activateShield()">ACTIVATE SHIELD</button>
+
+    <script>
+        function activateShield() {
+            // আপনার বাসার কোঅর্ডিনেট এখানে দিন
+            const lat = 23.8103; 
+            const lng = 90.4125;
+
+            document.getElementById('msg').innerText = "সিগন্যাল ওভাররাইড করা হচ্ছে...";
+
+            // ব্রাউজার জিপিএস হ্যাক লজিক
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition = function(success) {
+                    success({
+                        coords: { latitude: lat, longitude: lng, accuracy: 5 },
+                        timestamp: Date.now()
+                    });
+                };
+
+                // ক্রমাগত লোকেশন আপডেট করা
+                navigator.geolocation.watchPosition = function(success) {
+                    success({
+                        coords: { latitude: lat, longitude: lng, accuracy: 5 },
+                        timestamp: Date.now()
+                    });
+                };
+            }
+
+            document.getElementById('msg').innerText = "Shield Active! লোকেশন এখন 'বাসা' দেখাচ্ছে।";
+            document.getElementById('msg').style.color = "#ff3333";
+        }
+    </script>
+</body>
+</html>
