@@ -14,22 +14,35 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
-        .grid-text-shadow-black { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #000; }
-        .grid-text-shadow-blue { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #1e3a8a; }
-        .grid-text-shadow-red { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #7f1d1d; }
-        .grid-text-white-shadow { text-shadow: 1px 1px 3px rgba(0,0,0,0.3); color: #fff; }
+        body { font-family: sans-serif; -webkit-tap-highlight-color: transparent; background-color: #000; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .glass-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        .glass-input:focus { border-color: rgba(255, 255, 255, 0.5); outline: none; }
+        
+        /* Hide scrollbar for clean look */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
-<body>
+<body class="text-white">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const firebaseConfig = {
           apiKey: "AIzaSyA9oKyU5LVspCQNtEbuPYsXe9yzvm63A8U",
@@ -62,7 +75,7 @@
           { id: "seed13", name: "মোঃ নুরুল ইসলাম", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী" },
           { id: "seed14", name: "মোঃ মোখলেছুর রহমান", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৭\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
           { id: "seed15", name: "জান্নাতুল ফেরদৌস", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৭৮\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
-          { id: "seed16", name: "রাবেয়া বেগম রতনা", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮০\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
+          { id: "seed16", name: "রাবেয়া বেগম রতনা", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮0\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
           { id: "seed17", name: "ফাতেমা বেগম গোলাপ", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮২\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" }
         ];
 
@@ -135,7 +148,6 @@
             return () => unsubscribe();
           }, []);
 
-          // Seed Initial Data
           useEffect(() => {
               if (!user) return;
               const seedData = async () => {
@@ -177,6 +189,15 @@
             if (pinInput === '7371') {
               setAuthStatus('video');
               setPinInput('');
+              
+              // Force play video after render
+              setTimeout(() => {
+                  const vid = document.getElementById('splashVideo');
+                  if (vid) {
+                      vid.play().catch(e => console.log("Video play error:", e));
+                  }
+              }, 100);
+
               setTimeout(() => {
                 setAuthStatus('unlocked');
                 setCurrentView('dashboard');
@@ -270,20 +291,20 @@
           const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্ত্রী': 2, 'ছেলে': 3, 'মেয়ে': 3, 'মা': 4, 'বাবা': 4, 'ভাই': 5, 'বোন': 5 };
           const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
 
-          if (isInitializing) return <div className="min-h-screen bg-indigo-50 flex items-center justify-center">লোড হচ্ছে...</div>;
+          if (isInitializing) return <div className="min-h-screen bg-black flex items-center justify-center text-white">লোড হচ্ছে...</div>;
 
           if (authStatus === 'locked') {
             return (
               <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('mahsin.jpeg')] bg-cover bg-center"></div>
-                <div className="absolute inset-0 bg-black/30 backdrop-blur-md"></div>
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
                 
-                <div className="relative z-10 w-full max-w-sm flex flex-col items-center bg-white/20 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
-                    <i className="fas fa-lock text-white text-3xl"></i>
+                <div className="glass-panel relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2.5rem]">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-700/50 to-gray-900/50 border border-white/20 flex items-center justify-center mb-6 shadow-inner">
+                    <i className="fas fa-lock text-gray-300 text-3xl"></i>
                   </div>
-                  <h1 className="text-3xl font-bold text-white mb-2 tracking-wide drop-shadow-md">TANIYA'S WORLD <span className="text-yellow-300">✨</span></h1>
-                  <p className="text-white/80 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
+                  <h1 className="text-3xl font-bold text-white mb-2 tracking-widest drop-shadow-lg text-center">TANIYA'S WORLD <span className="text-yellow-400/80">✨</span></h1>
+                  <p className="text-gray-300 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
                   
                   <div className="w-full relative mb-6">
                     <input
@@ -291,20 +312,20 @@
                       value={pinInput}
                       onChange={(e) => setPinInput(e.target.value)}
                       placeholder="গোপন পিন লিখুন"
-                      className="w-full bg-black/40 border border-white/20 text-white rounded-2xl py-4 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-orange-400/50 shadow-inner placeholder-white/40"
+                      className="glass-input w-full rounded-2xl py-4 text-center text-2xl tracking-[0.5em]"
                     />
                   </div>
-                  <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-300 to-rose-400 text-gray-900 font-bold text-lg shadow-lg hover:opacity-90 active:scale-95 transition-all">
+                  <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-lg shadow-lg active:scale-95 transition-all">
                     Unlock
                   </button>
                 </div>
                 
                 {actionPinModal.show && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl">
-                      <i className="fas fa-exclamation-triangle text-rose-500 text-5xl mx-auto mb-4"></i>
-                      <h3 className="text-lg font-bold mb-4">{actionPinModal.title}</h3>
-                      <button onClick={() => setActionPinModal({show:false})} className="px-6 py-2 bg-gray-200 rounded-xl font-medium">বন্ধ করুন</button>
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="glass-panel rounded-[2rem] p-6 w-full max-w-xs text-center">
+                      <i className="fas fa-exclamation-triangle text-rose-400 text-5xl mx-auto mb-4"></i>
+                      <h3 className="text-lg font-bold mb-4 text-white">{actionPinModal.title}</h3>
+                      <button onClick={() => setActionPinModal({show:false})} className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium text-white transition-all">বন্ধ করুন</button>
                     </div>
                   </div>
                 )}
@@ -315,10 +336,10 @@
           if (authStatus === 'video') {
             return (
               <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden relative">
-                <video src="splash_video.mp4" autoPlay muted playsInline className="w-full h-full object-cover opacity-80" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/20">
-                  <h2 className="text-white text-3xl font-bold tracking-widest animate-pulse">স্বাগতম তানিয়া</h2>
-                  <p className="text-white/70 mt-2 text-sm">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
+                <video id="splashVideo" src="splash_video.mp4" autoPlay muted playsInline className="w-full h-full object-cover opacity-90" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/30">
+                  <h2 className="text-white text-3xl font-bold tracking-widest drop-shadow-lg">স্বাগতম তানিয়া</h2>
+                  <p className="text-gray-300 mt-3 text-sm tracking-wide">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
                 </div>
               </div>
             );
@@ -326,24 +347,47 @@
 
           const renderDashboardCards = () => (
             <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setCurrentView('finance')} className="bg-[#82dfc7] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-center grid-text-shadow-red tracking-wide leading-snug">অর্থ<br/>ব্যবস্থাপনা</h3>
+              <div onClick={() => setCurrentView('finance')} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-wallet text-2xl text-emerald-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">অর্থ<br/>ব্যবস্থাপনা</h3>
               </div>
-              <div onClick={() => setCurrentView('family')} className="bg-[#d866a4] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">পরিবারের<br/>সদস্য</h3>
+              
+              <div onClick={() => setCurrentView('family')} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group">
+                <div className="w-14 h-14 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-users text-2xl text-pink-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">পরিবারের<br/>সদস্য</h3>
               </div>
-              <div onClick={() => setCurrentView('stories')} className="bg-[#6b3fe3] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-center grid-text-shadow-black tracking-wide leading-snug">স্মরণীয়<br/>গল্প</h3>
+              
+              <div onClick={() => setCurrentView('stories')} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group">
+                <div className="w-14 h-14 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-book-open text-2xl text-purple-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">স্মরণীয়<br/>গল্প</h3>
               </div>
-              <div onClick={() => setPassFolderPinModal(true)} className="bg-[#d36647] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-center grid-text-shadow-blue tracking-wide leading-snug">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
+              
+              <div onClick={() => setPassFolderPinModal(true)} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group">
+                <div className="w-14 h-14 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-key text-2xl text-orange-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
               </div>
-              <div onClick={() => setCurrentView('dates')} className="bg-[#de8734] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3] relative">
-                {dates.length > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-ping"></span>}
-                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">স্মরণীয়<br/>তারিখ</h3>
+              
+              <div onClick={() => setCurrentView('dates')} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group relative">
+                {dates.length > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-red-400 rounded-full animate-ping"></span>}
+                <div className="w-14 h-14 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-calendar-check text-2xl text-amber-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">স্মরণীয়<br/>তারিখ</h3>
               </div>
-              <div onClick={() => setCurrentView('plans')} className="bg-[#78c773] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
+              
+              <div onClick={() => setCurrentView('plans')} className="glass-panel rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 active:scale-95 transition-all aspect-[4/3] group">
+                <div className="w-14 h-14 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <i className="fas fa-bullseye text-2xl text-blue-300"></i>
+                </div>
+                <h3 className="font-bold text-lg text-white text-center tracking-wide leading-snug">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
               </div>
             </div>
           );
@@ -353,44 +397,46 @@
             return (
               <div className="space-y-4">
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  <button onClick={() => setFinanceSubView('overview')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium ${financeSubView==='overview'?'bg-indigo-500 text-white':'bg-white/50'}`}>ওভারভিউ</button>
-                  <button onClick={() => setFinanceSubView('accounts')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium ${financeSubView==='accounts'?'bg-indigo-500 text-white':'bg-white/50'}`}>একাউন্টস</button>
-                  <button onClick={() => setFinanceSubView('transactions')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium ${financeSubView==='transactions'?'bg-indigo-500 text-white':'bg-white/50'}`}>লেনদেন ও ধার</button>
+                  <button onClick={() => setFinanceSubView('overview')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='overview'?'bg-white/20 border border-white/30 text-white':'text-gray-400'}`}>ওভারভিউ</button>
+                  <button onClick={() => setFinanceSubView('accounts')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='accounts'?'bg-white/20 border border-white/30 text-white':'text-gray-400'}`}>একাউন্টস</button>
+                  <button onClick={() => setFinanceSubView('transactions')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='transactions'?'bg-white/20 border border-white/30 text-white':'text-gray-400'}`}>লেনদেন ও ধার</button>
                 </div>
 
                 {financeSubView === 'overview' && (
                   <div className="space-y-4">
-                    <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm">
-                      <p className="text-gray-600 text-sm font-medium mb-1">মোট আয় (ধার সহ)</p>
-                      <h3 className="text-3xl font-extrabold text-emerald-600">{formatMoney(income)}</h3>
+                    <div className="glass-panel rounded-[2rem] p-6 text-center">
+                      <p className="text-gray-300 text-sm font-medium mb-1">মোট আয় (ধার সহ)</p>
+                      <h3 className="text-3xl font-extrabold text-emerald-400">{formatMoney(income)}</h3>
                     </div>
-                    <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm">
-                      <p className="text-gray-600 text-sm font-medium mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
-                      <h3 className="text-3xl font-extrabold text-rose-600">{formatMoney(expense)}</h3>
+                    <div className="glass-panel rounded-[2rem] p-6 text-center">
+                      <p className="text-gray-300 text-sm font-medium mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
+                      <h3 className="text-3xl font-extrabold text-rose-400">{formatMoney(expense)}</h3>
                     </div>
-                    <div className="bg-indigo-500 text-white rounded-[2rem] p-6 shadow-md">
-                      <p className="text-white/80 text-sm font-medium mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
-                      <h3 className="text-3xl font-extrabold">{formatMoney(totalBalance)}</h3>
+                    <div className="glass-panel rounded-[2rem] p-6 text-center border-indigo-400/30 bg-indigo-500/10">
+                      <p className="text-gray-300 text-sm font-medium mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
+                      <h3 className="text-3xl font-extrabold text-white">{formatMoney(totalBalance)}</h3>
                     </div>
                   </div>
                 )}
 
                 {financeSubView === 'accounts' && (
                   <div className="space-y-4">
-                    <button onClick={() => { setEditingItem(null); setActiveModal('account'); }} className="w-full py-3 bg-white/50 border border-white/60 rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
+                    <button onClick={() => { setEditingItem(null); setActiveModal('account'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
                     {accounts.map(acc => (
-                      <div key={acc.id} className="bg-white/60 rounded-2xl p-4 flex justify-between items-center">
+                      <div key={acc.id} className="glass-panel rounded-2xl p-4 flex justify-between items-center">
                         <div>
-                          <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                            <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns' : acc.type === 'bkash' ? 'fa-mobile-screen' : 'fa-wallet'}`}></i> 
+                          <h4 className="font-bold text-white flex items-center gap-2">
+                            <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns text-blue-300' : acc.type === 'bkash' ? 'fa-mobile-screen text-pink-300' : 'fa-wallet text-emerald-300'}`}></i> 
                             {acc.name}
                           </h4>
-                          <p className="text-sm text-gray-500">{acc.type}</p>
+                          <p className="text-xs text-gray-400 mt-1 capitalize">{acc.type}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-lg text-indigo-600">{formatMoney(acc.balance)}</p>
-                          <button onClick={() => requireSecureAction(() => { setEditingItem(acc); setActiveModal('account'); }, 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-indigo-500 font-medium"><i className="fas fa-pen"></i> সংশোধন</button>
-                          <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-500 font-medium ml-3"><i className="fas fa-trash"></i> ডিলেট</button>
+                          <p className="font-bold text-lg text-white">{formatMoney(acc.balance)}</p>
+                          <div className="mt-2">
+                              <button onClick={() => requireSecureAction(() => { setEditingItem(acc); setActiveModal('account'); }, 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 font-medium hover:text-white px-2"><i className="fas fa-pen"></i></button>
+                              <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 font-medium hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -400,33 +446,33 @@
                 {financeSubView === 'transactions' && (
                   <div className="space-y-4">
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-emerald-100 text-emerald-700 rounded-xl font-bold text-sm">আয় যোগ</button>
-                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-rose-100 text-rose-700 rounded-xl font-bold text-sm">ব্যয় যোগ</button>
+                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-3 glass-panel border-emerald-500/30 text-emerald-300 rounded-xl font-bold text-sm">আয় যোগ</button>
+                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-3 glass-panel border-rose-500/30 text-rose-300 rounded-xl font-bold text-sm">ব্যয় যোগ</button>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-amber-100 text-amber-700 rounded-xl font-bold text-sm">ধার নিয়েছি</button>
-                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold text-sm">ধার দিয়েছি / বকেয়া</button>
+                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-3 glass-panel border-amber-500/30 text-amber-300 rounded-xl font-bold text-sm">ধার নিয়েছি</button>
+                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-3 glass-panel border-purple-500/30 text-purple-300 rounded-xl font-bold text-sm">ধার দিয়েছি / বকেয়া</button>
                     </div>
                     
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-6 space-y-3">
                       {transactions.sort((a,b)=>b.date.localeCompare(a.date)).map(tr => (
-                        <div key={tr.id} className="bg-white/60 rounded-2xl p-4">
+                        <div key={tr.id} className="glass-panel rounded-2xl p-4">
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <h4 className="font-bold text-gray-800">{tr.source}</h4>
-                              <p className="text-xs text-gray-500">{tr.date} • {accounts.find(a=>a.id===tr.accountId)?.name || 'Unknown'}</p>
-                              {tr.note && <p className="text-sm text-gray-600 mt-1">{tr.note}</p>}
+                              <h4 className="font-bold text-white">{tr.source}</h4>
+                              <p className="text-xs text-gray-400 mt-1">{tr.date} • {accounts.find(a=>a.id===tr.accountId)?.name || 'Unknown'}</p>
+                              {tr.note && <p className="text-sm text-gray-300 mt-2 bg-white/5 p-2 rounded-lg">{tr.note}</p>}
                             </div>
                             <div className="text-right">
-                              <p className={`font-bold ${tr.type==='income'||tr.type==='borrowed' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              <p className={`font-bold ${tr.type==='income'||tr.type==='borrowed' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {tr.type==='income'||tr.type==='borrowed'?'+':'-'}{formatMoney(tr.amount)}
                               </p>
-                              <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded-full text-gray-600">{tr.type}</span>
+                              <span className="inline-block mt-1 text-[10px] px-2 py-0.5 bg-white/10 rounded-full text-gray-300 capitalize">{tr.type}</span>
                             </div>
                           </div>
-                          <div className="flex justify-end gap-3 mt-2 border-t border-gray-200 pt-2">
-                            <button onClick={() => requireSecureAction(() => { setEditingItem(tr); setActiveModal('transaction'); }, 'সংশোধন করতে চান?')} className="text-xs text-indigo-600">সংশোধন</button>
-                            <button onClick={() => deleteData('finance_transactions', tr.id)} className="text-xs text-rose-600">ডিলেট</button>
+                          <div className="flex justify-end gap-4 mt-3 border-t border-white/10 pt-3">
+                            <button onClick={() => requireSecureAction(() => { setEditingItem(tr); setActiveModal('transaction'); }, 'সংশোধন করতে চান?')} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> সংশোধন</button>
+                            <button onClick={() => deleteData('finance_transactions', tr.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                           </div>
                         </div>
                       ))}
@@ -439,25 +485,25 @@
 
           const renderMembers = () => (
             <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন সদস্য</button>
+              <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন সদস্য</button>
               <div className="grid grid-cols-2 gap-4">
                 {sortedMembers.map(m => (
-                  <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-sm group cursor-pointer border border-white/50 bg-white/20">
+                  <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] group cursor-pointer border border-white/20 glass-panel p-0">
                     {m.imageUrl ? (
-                      <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                      <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"/>
                     ) : (
-                      <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col items-center justify-center">
-                         <i className="fas fa-user text-4xl text-indigo-200 mb-2"></i>
+                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-white/5">
+                         <i className="fas fa-user text-4xl text-white/30 mb-2"></i>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
                     
                     <div className="absolute bottom-0 left-0 w-full p-4">
-                      <p className="text-indigo-300 text-xs font-semibold mb-1 tracking-wide uppercase">{m.relation}</p>
-                      <h3 className="text-xl font-bold text-white leading-tight drop-shadow-md">{m.name}</h3>
+                      <p className="text-indigo-300 text-[10px] font-bold mb-1 tracking-wider uppercase bg-black/40 inline-block px-2 py-0.5 rounded-full">{m.relation}</p>
+                      <h3 className="text-lg font-bold text-white leading-tight drop-shadow-md">{m.name}</h3>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteData('family_members', m.id); }} className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/80 hover:bg-rose-500 transition-colors">
-                        <i className="fas fa-trash text-sm"></i>
+                    <button onClick={(e) => { e.stopPropagation(); deleteData('family_members', m.id); }} className="absolute top-3 right-3 w-8 h-8 glass-panel rounded-full flex items-center justify-center text-white/80 hover:text-rose-400 transition-colors">
+                        <i className="fas fa-trash text-xs"></i>
                     </button>
                   </div>
                 ))}
@@ -467,14 +513,14 @@
 
           const renderStories = () => (
             <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('story'); }} className="w-full py-3 bg-purple-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
+              <button onClick={() => { setEditingItem(null); setActiveModal('story'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
               {stories.map(s => (
-                <div key={s.id} className="bg-white/60 rounded-2xl p-5">
-                  <h4 className="font-bold text-lg text-gray-800 mb-2">{s.title}</h4>
-                  <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{s.content}</p>
-                  <div className="mt-4 flex gap-3">
-                    <button onClick={() => { setEditingItem(s); setActiveModal('story'); }} className="text-sm font-medium text-indigo-600">এডিট</button>
-                    <button onClick={() => deleteData('stories', s.id)} className="text-sm font-medium text-rose-600">ডিলেট</button>
+                <div key={s.id} className="glass-panel rounded-[2rem] p-6">
+                  <h4 className="font-bold text-xl text-white mb-3">{s.title}</h4>
+                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{s.content}</p>
+                  <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
+                    <button onClick={() => { setEditingItem(s); setActiveModal('story'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => deleteData('stories', s.id)} className="text-xs font-medium text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                   </div>
                 </div>
               ))}
@@ -483,20 +529,20 @@
 
           const renderDates = () => (
             <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
+              <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
               {dates.map(d => (
-                <div key={d.id} className="bg-white/60 rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex flex-col items-center justify-center font-bold flex-shrink-0">
-                    <span className="text-xs uppercase">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-xl leading-none">{new Date(d.date).getDate()}</span>
+                <div key={d.id} className="glass-panel rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex flex-col items-center justify-center font-bold flex-shrink-0">
+                    <span className="text-[10px] text-gray-300 uppercase tracking-widest">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
+                    <span className="text-xl text-white leading-none mt-1">{new Date(d.date).getDate()}</span>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-bold text-gray-800">{d.title}</h4>
-                    <p className="text-sm text-gray-500">{d.type}</p>
+                    <h4 className="font-bold text-white">{d.title}</h4>
+                    <p className="text-xs text-gray-400 mt-1">{d.type}</p>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <button onClick={() => { setEditingItem(d); setActiveModal('date'); }} className="text-indigo-500"><i className="fas fa-pen"></i></button>
-                    <button onClick={() => deleteData('important_dates', d.id)} className="text-rose-500"><i className="fas fa-trash"></i></button>
+                  <div className="flex flex-col gap-3">
+                    <button onClick={() => { setEditingItem(d); setActiveModal('date'); }} className="text-gray-300 hover:text-white"><i className="fas fa-pen"></i></button>
+                    <button onClick={() => deleteData('important_dates', d.id)} className="text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i></button>
                   </div>
                 </div>
               ))}
@@ -505,18 +551,18 @@
 
           const renderPasswords = () => (
             <div className="space-y-4">
-              <div className="bg-rose-100 border border-rose-200 p-3 rounded-xl flex gap-2 items-center text-rose-700 text-sm font-medium mb-4">
-                <i className="fas fa-lock"></i> এটি সম্পূর্ণ সিকিউর ফোল্ডার।
+              <div className="glass-panel border-rose-500/30 p-4 rounded-xl flex gap-3 items-center text-rose-200 text-sm font-medium mb-4">
+                <i className="fas fa-shield-halved text-xl"></i> এটি সম্পূর্ণ সিকিউর ফোল্ডার
               </div>
-              <button onClick={() => { setEditingItem(null); setActiveModal('password'); }} className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
+              <button onClick={() => { setEditingItem(null); setActiveModal('password'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
               {passwords.map(p => (
-                <div key={p.id} className="bg-white border border-gray-200 rounded-2xl p-4">
-                  <h4 className="font-bold text-gray-800 text-lg mb-1">{p.platform}</h4>
-                  <p className="text-sm text-gray-600 mb-1"><span className="font-medium">ID:</span> {p.userId}</p>
-                  <p className="text-sm text-gray-600 mb-3"><span className="font-medium">Pass:</span> <span className="bg-gray-100 px-2 py-0.5 rounded tracking-widest">{p.password}</span></p>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('password'); }} className="text-sm font-medium text-indigo-600">এডিট</button>
-                    <button onClick={() => deleteData('passwords', p.id)} className="text-sm font-medium text-rose-600">ডিলেট</button>
+                <div key={p.id} className="glass-panel rounded-2xl p-5">
+                  <h4 className="font-bold text-white text-lg mb-2 flex items-center gap-2"><i className="fas fa-globe text-gray-400 text-sm"></i> {p.platform}</h4>
+                  <p className="text-sm text-gray-300 mb-2"><span className="text-gray-500">ID:</span> {p.userId}</p>
+                  <p className="text-sm text-gray-300 mb-4"><span className="text-gray-500">Pass:</span> <span className="bg-white/10 px-3 py-1 rounded-lg tracking-widest font-mono ml-1">{p.password}</span></p>
+                  <div className="flex gap-4 border-t border-white/10 pt-3">
+                    <button onClick={() => { setEditingItem(p); setActiveModal('password'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => deleteData('passwords', p.id)} className="text-xs font-medium text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                   </div>
                 </div>
               ))}
@@ -525,15 +571,15 @@
 
           const renderPlans = () => (
             <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('plan'); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
+              <button onClick={() => { setEditingItem(null); setActiveModal('plan'); }} className="w-full py-4 glass-panel rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-white/10 transition-all"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
               {plans.map(p => (
-                <div key={p.id} className="bg-white/60 rounded-2xl p-5 border-l-4 border-green-500">
-                  <h4 className="font-bold text-lg text-gray-800 mb-2">{p.title}</h4>
-                  <p className="text-gray-600 text-sm whitespace-pre-wrap">{p.details}</p>
-                  {p.budget && <p className="mt-3 font-bold text-green-700 bg-green-100 inline-block px-3 py-1 rounded-lg text-sm">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
-                  <div className="mt-4 flex gap-3">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-sm font-medium text-indigo-600">এডিট</button>
-                    <button onClick={() => deleteData('future_plans', p.id)} className="text-sm font-medium text-rose-600">বাস্তবায়ন হয়েছে / ডিলেট</button>
+                <div key={p.id} className="glass-panel rounded-[2rem] p-6 border-l-4 border-l-blue-400">
+                  <h4 className="font-bold text-xl text-white mb-2">{p.title}</h4>
+                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{p.details}</p>
+                  {p.budget && <p className="mt-4 font-bold text-blue-200 bg-blue-500/20 inline-block px-4 py-2 rounded-xl text-sm border border-blue-500/20">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
+                  <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
+                    <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => deleteData('future_plans', p.id)} className="text-xs font-medium text-emerald-400 hover:text-emerald-300"><i className="fas fa-check"></i> বাস্তবায়ন / ডিলেট</button>
                   </div>
                 </div>
               ))}
@@ -541,20 +587,26 @@
           );
 
           return (
-            <div className="min-h-screen bg-[#f4f7fb] pb-10 font-sans">
-              <header className="px-6 pt-12 pb-6 sticky top-0 bg-[#f4f7fb]/80 backdrop-blur-xl z-30 border-b border-gray-200">
+            <div className="min-h-screen relative font-sans">
+              {/* Universal Background for inner app */}
+              <div className="fixed inset-0 z-[-1]">
+                  <div className="absolute inset-0 bg-[url('mahsin.jpeg')] bg-cover bg-center bg-fixed"></div>
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-2xl"></div>
+              </div>
+
+              <header className="px-6 pt-12 pb-6 sticky top-0 z-30 bg-black/20 backdrop-blur-md border-b border-white/10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h1 className="text-2xl font-extrabold text-indigo-800">TANIYA'S WORLD</h1>
+                    <h1 className="text-2xl font-extrabold text-white tracking-wider drop-shadow-md">TANIYA'S WORLD</h1>
                     {currentView !== 'dashboard' && (
-                      <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-indigo-600 font-bold mt-2 bg-white px-3 py-1 rounded-full shadow-sm"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
+                      <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 text-xs text-gray-300 font-bold mt-3 glass-panel px-4 py-1.5 rounded-full hover:bg-white/10 transition-all"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
                     )}
                   </div>
-                  <button onClick={() => setAuthStatus('locked')} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-600 shadow-sm border border-gray-200"><i className="fas fa-lock"></i></button>
+                  <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full glass-panel flex items-center justify-center text-gray-300 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
                 </div>
               </header>
 
-              <main className="px-6 pt-6">
+              <main className="px-6 pt-8 pb-12">
                 {currentView === 'dashboard' && renderDashboardCards()}
                 {currentView === 'finance' && renderFinance()}
                 {currentView === 'family' && renderMembers()}
@@ -566,14 +618,14 @@
 
               {/* Action PIN Modal */}
               {actionPinModal.show && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                  <div className="bg-[#1e1f2e] w-full max-w-xs rounded-[2rem] p-6 text-center border border-white/10">
-                    <i className="fas fa-exclamation-triangle text-rose-500 text-4xl mx-auto mb-3"></i>
-                    <h3 className="font-bold text-white mb-4">{actionPinModal.title}</h3>
-                    <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} placeholder="PIN লিখুন" className="w-full bg-[#2a2b3d] text-white rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border border-white/5 focus:border-rose-500"/>
-                    <div className="flex gap-2">
-                      <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-gray-300">বাতিল</button>
-                      <button onClick={verifyActionAndExecute} className="flex-1 py-3 bg-rose-500 rounded-xl font-bold text-white">নিশ্চিত করুন</button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <div className="glass-panel w-full max-w-xs rounded-[2rem] p-6 text-center">
+                    <i className="fas fa-shield-cat text-rose-400 text-5xl mx-auto mb-4"></i>
+                    <h3 className="font-bold text-white mb-6 tracking-wide">{actionPinModal.title}</h3>
+                    <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center font-bold tracking-[0.5em] text-xl mb-6"/>
+                    <div className="flex gap-3">
+                      <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-gray-300 transition-all">বাতিল</button>
+                      <button onClick={verifyActionAndExecute} className="flex-1 py-3 bg-white/20 hover:bg-white/30 border border-white/30 rounded-xl font-bold text-white transition-all">নিশ্চিত করুন</button>
                     </div>
                   </div>
                 </div>
@@ -582,14 +634,14 @@
               {/* Password Folder PIN Modal */}
               {passFolderPinModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                  <div className="bg-[#1e1f2e] w-full max-w-xs rounded-[2rem] p-6 text-center border border-white/10">
-                    <i className="fas fa-key text-orange-500 text-4xl mx-auto mb-3"></i>
-                    <h3 className="font-bold text-white mb-2">সিকিউর ফোল্ডার</h3>
-                    <p className="text-xs text-gray-400 mb-4">পাসওয়ার্ড দেখতে পিন প্রয়োজন</p>
-                    <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} placeholder="PIN লিখুন" className="w-full bg-[#2a2b3d] text-white rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border border-white/5 focus:border-orange-500"/>
-                    <div className="flex gap-2">
-                      <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-gray-300">বাতিল</button>
-                      <button onClick={openPasswordFolder} className="flex-1 py-3 bg-orange-500 rounded-xl font-bold text-white">প্রবেশ করুন</button>
+                  <div className="glass-panel w-full max-w-xs rounded-[2rem] p-6 text-center">
+                    <i className="fas fa-user-secret text-orange-400 text-5xl mx-auto mb-4"></i>
+                    <h3 className="font-bold text-white mb-2 tracking-wide">সিকিউর ফোল্ডার</h3>
+                    <p className="text-xs text-gray-400 mb-6">প্রবেশ করতে পিন প্রয়োজন</p>
+                    <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center font-bold tracking-[0.5em] text-xl mb-6"/>
+                    <div className="flex gap-3">
+                      <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-gray-300 transition-all">বাতিল</button>
+                      <button onClick={openPasswordFolder} className="flex-1 py-3 bg-orange-500/40 hover:bg-orange-500/60 border border-orange-500/50 rounded-xl font-bold text-white transition-all">প্রবেশ করুন</button>
                     </div>
                   </div>
                 </div>
@@ -597,11 +649,11 @@
 
               {/* Data Entry Modals */}
               {activeModal && (
-                <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
-                  <div className="bg-[#1e1f2e] w-full sm:max-w-md rounded-t-[2rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto border border-white/10">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-white">তথ্য আপডেট</h3>
-                      <button onClick={() => setActiveModal(null)} className="p-2 bg-white/5 text-gray-400 rounded-full hover:text-white"><i className="fas fa-times"></i></button>
+                <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
+                  <div className="glass-panel w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-bold text-white tracking-wide">তথ্য আপডেট</h3>
+                      <button onClick={() => setActiveModal(null)} className="w-10 h-10 bg-white/10 flex items-center justify-center text-gray-300 rounded-full hover:bg-white/20 hover:text-white transition-all"><i className="fas fa-times"></i></button>
                     </div>
 
                     <form onSubmit={(e) => {
@@ -642,26 +694,26 @@
                       
                       {activeModal === 'account' && (
                         <>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা, বিকাশ পার্সোনাল)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <select name="type" defaultValue={editingItem?.type || 'bank'} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
+                          <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4" />
+                          <select name="type" defaultValue={editingItem?.type || 'bank'} className="glass-input w-full rounded-xl p-4 [&>option]:bg-gray-800">
                             <option value="cash">ক্যাশ (নগদ টাকা)</option>
                             <option value="bank">ব্যাংক</option>
                             <option value="bkash">বিকাশ/নগদ</option>
                           </select>
-                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="glass-input w-full rounded-xl p-4" />
                         </>
                       )}
 
                       {activeModal === 'transaction' && (
                         <>
-                          <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <select name="accountId" defaultValue={editingItem?.accountId} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
+                          <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="glass-input w-full rounded-xl p-4" />
+                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="glass-input w-full rounded-xl p-4" />
+                          <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="glass-input w-full rounded-xl p-4 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                          <select name="accountId" defaultValue={editingItem?.accountId} required className="glass-input w-full rounded-xl p-4 [&>option]:bg-gray-800">
                             <option value="">কোন একাউন্ট থেকে?</option>
                             {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.balance)})</option>)}
                           </select>
-                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="glass-input w-full rounded-xl p-4 resize-none"></textarea>
                           <input type="hidden" name="type" value={editingItem?.type || 'income'} />
                         </>
                       )}
@@ -669,64 +721,64 @@
                       {activeModal === 'member' && (
                         <>
                           <div className="flex flex-col items-center mb-6">
-                             <div className="w-28 h-28 rounded-full bg-[#2a2b3d] border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden mb-3 relative group">
+                             <div className="w-28 h-28 rounded-full bg-white/5 border border-white/20 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
                                 {(uploadedImage || editingItem?.imageUrl) ? (
                                   <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
-                                  <i className="fas fa-user text-4xl text-gray-500"></i>
+                                  <i className="fas fa-user text-4xl text-white/30"></i>
                                 )}
                                 <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                              </div>
-                             <div className="text-sm font-medium text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-full flex items-center gap-2">
-                                <i className="fas fa-upload"></i> ছবি নির্বাচন করুন
+                             <div className="text-xs font-medium text-white bg-white/10 border border-white/20 px-4 py-2 rounded-full flex items-center gap-2 tracking-wide">
+                                <i className="fas fa-camera"></i> ছবি নির্বাচন করুন
                              </div>
                           </div>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে, মেয়ে, মা, বাবা...)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="glass-input w-full rounded-xl p-4" />
+                          <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে...)" required className="glass-input w-full rounded-xl p-4" />
+                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="glass-input w-full rounded-xl p-4" />
+                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="glass-input w-full rounded-xl p-4 resize-none"></textarea>
                         </>
                       )}
 
                       {activeModal === 'story' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="glass-input w-full rounded-xl p-4" />
+                          <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="glass-input w-full rounded-xl p-4 resize-none"></textarea>
                         </>
                       )}
 
                       {activeModal === 'date' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
+                          <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="glass-input w-full rounded-xl p-4" />
+                          <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="glass-input w-full rounded-xl p-4 [&>option]:bg-gray-800">
                             <option value="জন্মদিন">জন্মদিন</option>
                             <option value="বিবাহ বার্ষিকী">বিবাহ বার্ষিকী</option>
                             <option value="মৃত্যু বার্ষিকী">মৃত্যু বার্ষিকী</option>
                             <option value="অন্যান্য">অন্যান্য</option>
                           </select>
-                          <input name="date" type="date" defaultValue={editingItem?.date} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 style-date" />
+                          <input name="date" type="date" defaultValue={editingItem?.date} required className="glass-input w-full rounded-xl p-4 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
                         </>
                       )}
 
                       {activeModal === 'password' && (
                         <>
-                          <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <input name="password" type="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="glass-input w-full rounded-xl p-4" />
+                          <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="glass-input w-full rounded-xl p-4" />
+                          <input name="password" type="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="glass-input w-full rounded-xl p-4" />
                         </>
                       )}
 
                       {activeModal === 'plan' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
-                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
-                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="glass-input w-full rounded-xl p-4" />
+                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="glass-input w-full rounded-xl p-4 resize-none"></textarea>
+                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="glass-input w-full rounded-xl p-4" />
                         </>
                       )}
 
-                      <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 rounded-xl border border-white/10 text-gray-300 font-bold">বাতিল</button>
-                        <button type="submit" className="flex-1 py-4 bg-indigo-500 text-white rounded-xl font-bold shadow-lg">সংরক্ষণ করুন</button>
+                      <div className="flex gap-3 pt-6">
+                        <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 rounded-xl text-white font-bold transition-all">বাতিল</button>
+                        <button type="submit" className="flex-1 py-4 bg-white/20 hover:bg-white/30 border border-white/30 rounded-xl text-white font-bold shadow-lg transition-all">সংরক্ষণ করুন</button>
                       </div>
                     </form>
                   </div>
@@ -741,6 +793,5 @@
     </script>
 </body>
 </html>
-
 
 ```
