@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>তানিয়ার ডিজিটাল লকার</title>
+    <title>TANIYA'S WORLD</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,6 +15,10 @@
 
     <style>
         body { font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
+        .grid-text-shadow-black { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #000; }
+        .grid-text-shadow-blue { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #1e3a8a; }
+        .grid-text-shadow-red { text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; color: #7f1d1d; }
+        .grid-text-white-shadow { text-shadow: 1px 1px 3px rgba(0,0,0,0.3); color: #fff; }
     </style>
 </head>
 <body>
@@ -23,7 +27,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const { useState, useEffect } = React;
 
@@ -42,13 +46,56 @@
         const db = getFirestore(app);
         const appId = "taniya-locker-app";
 
+        const initialSeedMembers = [
+          { id: "seed1", name: "নাহিদা ইয়াছমিন তানিয়া", relation: "আমি", mobile: "", note: "জন্ম: ০১/৩০/১৯৯৪\nবিবাহ: ০২/২৮/২০১২, ০৬/২৭/২০১৪\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী" },
+          { id: "seed2", name: "মোঃ মহসিন", relation: "স্বামী", mobile: "", note: "জন্ম: ০১/০১/১৯৯২\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: আমেরিকান প্রবাসী" },
+          { id: "seed3", name: "মোঃ জহিরুল ইসলাম", relation: "স্বামী সাবেক", mobile: "", note: "জন্ম: ০১/০১/১৯৮৫\nমৃত্যু: ২৭/১২/২০১৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী" },
+          { id: "seed4", name: "নাজমা আক্তার", relation: "মা", mobile: "", note: "জন্ম: ০৫/২০/১৯৭৬\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিণী" },
+          { id: "seed5", name: "ফারুক হোসেন", relation: "বাবা", mobile: "", note: "জন্ম: ০৯/১০/১৯৬৭\nমৃত্যু: ১১/২৫/২০২৩\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী" },
+          { id: "seed6", name: "খন্দকার মাহির তাজওয়ার", relation: "ছেলে", mobile: "", note: "জন্ম: ০৫/১৪/২০১৮\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী" },
+          { id: "seed7", name: "তনিমা ইসলাম জুয়েনা", relation: "মেয়ে", mobile: "", note: "জন্ম: ০৬/২৮/২০১৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী" },
+          { id: "seed8", name: "মুসকান খন্দকার আলিজা", relation: "মেয়ে", mobile: "", note: "জন্ম: ১২/১৬/২০২১\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রামপুর, থানা- বেগমগঞ্জ , জেলা - নোয়াখালী" },
+          { id: "seed9", name: "মেহেদী হাসান মন্জু", relation: "ভাই", mobile: "", note: "জন্ম: ১২/১০/২০০১\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী" },
+          { id: "seed10", name: "ফরিদা ইয়াছমিন রিপন", relation: "বোন", mobile: "", note: "জন্ম: ০৮/০৭/১৯৮৯\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী" },
+          { id: "seed11", name: "আন্জুমান আক্তার প্রিয়া", relation: "বোন", mobile: "", note: "জন্ম: ১২/১৪/১৯৯৮\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী" },
+          { id: "seed12", name: "আলমগীর হোসাইন", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৭৬\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী" },
+          { id: "seed13", name: "মোঃ নুরুল ইসলাম", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী" },
+          { id: "seed14", name: "মোঃ মোখলেছুর রহমান", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৭\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
+          { id: "seed15", name: "জান্নাতুল ফেরদৌস", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৭৮\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
+          { id: "seed16", name: "রাবেয়া বেগম রতনা", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮০\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" },
+          { id: "seed17", name: "ফাতেমা বেগম গোলাপ", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮২\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী" }
+        ];
+
+        const initialSeedDates = [
+            { id: "d1", title: "নাহিদা ইয়াছমিন তানিয়া এর জন্মদিন", type: "জন্মদিন", date: "1994-01-30" },
+            { id: "d2", title: "প্রথম বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2012-02-28" },
+            { id: "d3", title: "দ্বিতীয় বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2014-06-27" },
+            { id: "d4", title: "মোঃ মহসিন এর জন্মদিন", type: "জন্মদিন", date: "1992-01-01" },
+            { id: "d5", title: "মোঃ জহিরুল ইসলাম এর জন্মদিন", type: "জন্মদিন", date: "1985-01-01" },
+            { id: "d6", title: "মোঃ জহিরুল ইসলাম এর মৃত্যু বার্ষিকী", type: "মৃত্যু বার্ষিকী", date: "2013-12-27" },
+            { id: "d7", title: "মা নাজমা আক্তার এর জন্মদিন", type: "জন্মদিন", date: "1976-05-20" },
+            { id: "d8", title: "বাবা ফারুক হোসেন এর জন্মদিন", type: "জন্মদিন", date: "1967-09-10" },
+            { id: "d9", title: "বাবা ফারুক হোসেন এর মৃত্যু বার্ষিকী", type: "মৃত্যু বার্ষিকী", date: "2023-11-25" },
+            { id: "d10", title: "ছেলে মাহির তাজওয়ার এর জন্মদিন", type: "জন্মদিন", date: "2018-05-14" },
+            { id: "d11", title: "মেয়ে তনিমা ইসলাম জুয়েনা এর জন্মদিন", type: "জন্মদিন", date: "2013-06-28" },
+            { id: "d12", title: "মেয়ে মুসকান খন্দকার আলিজা এর জন্মদিন", type: "জন্মদিন", date: "2021-12-16" },
+            { id: "d13", title: "ভাই মেহেদী হাসান মন্জু এর জন্মদিন", type: "জন্মদিন", date: "2001-12-10" },
+            { id: "d14", title: "বোন ফরিদা ইয়াছমিন রিপন এর জন্মদিন", type: "জন্মদিন", date: "1989-08-07" },
+            { id: "d15", title: "বোন আন্জুমান আক্তার প্রিয়া এর জন্মদিন", type: "জন্মদিন", date: "1998-12-14" },
+            { id: "d16", title: "ভাসুর আলমগীর হোসাইন এর জন্মদিন", type: "জন্মদিন", date: "1976-01-01" },
+            { id: "d17", title: "ভাসুর মোঃ নুরুল ইসলাম এর জন্মদিন", type: "জন্মদিন", date: "1983-01-01" },
+            { id: "d18", title: "ভাসুর মোঃ মোখলেছুর রহমান এর জন্মদিন", type: "জন্মদিন", date: "1987-01-01" },
+            { id: "d19", title: "ননদ জান্নাতুল ফেরদৌস এর জন্মদিন", type: "জন্মদিন", date: "1978-01-01" },
+            { id: "d20", title: "ননদ রাবেয়া বেগম রতনা এর জন্মদিন", type: "জন্মদিন", date: "1980-01-01" },
+            { id: "d21", title: "ননদ ফাতেমা বেগম গোলাপ এর জন্মদিন", type: "জন্মদিন", date: "1982-01-01" }
+        ];
+
         function App() {
           const [user, setUser] = useState(null);
           const [isInitializing, setIsInitializing] = useState(true);
 
           const [authStatus, setAuthStatus] = useState('locked'); 
           const [pinInput, setPinInput] = useState('');
-          const [showPin, setShowPin] = useState(false);
           const [currentView, setCurrentView] = useState('dashboard');
           
           const [actionPinModal, setActionPinModal] = useState({ show: false, action: null, title: '' });
@@ -88,6 +135,26 @@
             return () => unsubscribe();
           }, []);
 
+          // Seed Initial Data
+          useEffect(() => {
+              if (!user) return;
+              const seedData = async () => {
+                  const hasSeeded = localStorage.getItem(`seeded_${user.uid}`);
+                  if (!hasSeeded) {
+                      setTimeout(async () => {
+                         localStorage.setItem(`seeded_${user.uid}`, 'true');
+                         initialSeedMembers.forEach(async (m) => {
+                             await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m);
+                         });
+                         initialSeedDates.forEach(async (d) => {
+                             await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d);
+                         });
+                      }, 2000);
+                  }
+              };
+              seedData();
+          }, [user]);
+
           useEffect(() => {
             if (!user) return;
 
@@ -115,7 +182,7 @@
                 setCurrentView('dashboard');
               }, 7000);
             } else {
-              setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
+              setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
             }
           };
 
@@ -200,39 +267,40 @@
             return { income, expense, totalBalance };
           };
 
-          const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্ত্রী': 2, 'ছেলে': 3, 'মেয়ে': 3, 'মা': 4, 'বাবা': 4, 'ভাই': 5, 'বোন': 5 };
+          const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্ত্রী': 2, 'ছেলে': 3, 'মেয়ে': 3, 'মা': 4, 'বাবা': 4, 'ভাই': 5, 'বোন': 5 };
           const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
 
           if (isInitializing) return <div className="min-h-screen bg-indigo-50 flex items-center justify-center">লোড হচ্ছে...</div>;
 
           if (authStatus === 'locked') {
             return (
-              <div className="min-h-screen bg-gradient-to-tr from-rose-100 via-indigo-50 to-teal-50 flex items-center justify-center p-4">
-                <div className="w-full max-w-sm flex flex-col items-center bg-white/40 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mb-6 shadow-lg shadow-purple-200">
+              <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('mahsin.jpeg')] bg-cover bg-center"></div>
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-md"></div>
+                
+                <div className="relative z-10 w-full max-w-sm flex flex-col items-center bg-white/20 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
                     <i className="fas fa-lock text-white text-3xl"></i>
                   </div>
-                  <h1 className="text-3xl font-bold text-gray-800 mb-2">তানিয়ার লকার <span className="text-purple-500">✨</span></h1>
-                  <p className="text-gray-500 mb-8 text-center text-sm">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
+                  <h1 className="text-3xl font-bold text-white mb-2 tracking-wide drop-shadow-md">TANIYA'S WORLD <span className="text-yellow-300">✨</span></h1>
+                  <p className="text-white/80 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
                   
                   <div className="w-full relative mb-6">
                     <input
-                      type={showPin ? "text" : "password"}
+                      type="password"
                       value={pinInput}
                       onChange={(e) => setPinInput(e.target.value)}
                       placeholder="গোপন পিন লিখুন"
-                      className="w-full bg-white/50 border border-white/60 text-gray-800 rounded-2xl py-4 text-center text-lg focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                      className="w-full bg-black/40 border border-white/20 text-white rounded-2xl py-4 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-orange-400/50 shadow-inner placeholder-white/40"
                     />
-                    <button onClick={() => setShowPin(!showPin)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 p-2">
-                        <i className={`fas ${showPin ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
                   </div>
-                  <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold text-lg shadow-md">
-                    প্রবেশ করুন
+                  <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-300 to-rose-400 text-gray-900 font-bold text-lg shadow-lg hover:opacity-90 active:scale-95 transition-all">
+                    Unlock
                   </button>
                 </div>
+                
                 {actionPinModal.show && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
                     <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl">
                       <i className="fas fa-exclamation-triangle text-rose-500 text-5xl mx-auto mb-4"></i>
                       <h3 className="text-lg font-bold mb-4">{actionPinModal.title}</h3>
@@ -247,9 +315,9 @@
           if (authStatus === 'video') {
             return (
               <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden relative">
-                <video src="public/splash_video.mp4" autoPlay muted playsInline className="w-full h-full object-cover opacity-80" />
+                <video src="splash_video.mp4" autoPlay playsInline className="w-full h-full object-cover opacity-80" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/20">
-                  <h2 className="text-white text-2xl font-bold tracking-widest animate-pulse">স্বাগতম তানিয়া</h2>
+                  <h2 className="text-white text-3xl font-bold tracking-widest animate-pulse">স্বাগতম তানিয়া</h2>
                   <p className="text-white/70 mt-2 text-sm">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
                 </div>
               </div>
@@ -258,32 +326,24 @@
 
           const renderDashboardCards = () => (
             <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setCurrentView('finance')} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center"><i className="fas fa-wallet text-2xl"></i></div>
-                <h3 className="font-bold text-gray-800 text-center">অর্থ<br/>ব্যবস্থাপনা</h3>
+              <div onClick={() => setCurrentView('finance')} className="bg-[#82dfc7] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
+                <h3 className="font-bold text-2xl text-center grid-text-shadow-red tracking-wide leading-snug">অর্থ<br/>ব্যবস্থাপনা</h3>
               </div>
-              <div onClick={() => setCurrentView('family')} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center"><i className="fas fa-users text-2xl"></i></div>
-                <h3 className="font-bold text-gray-800 text-center">পরিবারের<br/>সদস্য</h3>
+              <div onClick={() => setCurrentView('family')} className="bg-[#d866a4] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
+                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">পরিবারের<br/>সদস্য</h3>
               </div>
-              <div onClick={() => setCurrentView('stories')} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center"><i className="fas fa-book-open text-2xl"></i></div>
-                <h3 className="font-bold text-gray-800 text-center">স্মরণীয়<br/>গল্প</h3>
+              <div onClick={() => setCurrentView('stories')} className="bg-[#6b3fe3] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
+                <h3 className="font-bold text-2xl text-center grid-text-shadow-black tracking-wide leading-snug">স্মরণীয়<br/>গল্প</h3>
               </div>
-              <div onClick={() => setPassFolderPinModal(true)} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center"><i className="fas fa-key text-2xl"></i></div>
-                <h3 className="font-bold text-gray-800 text-center">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
+              <div onClick={() => setPassFolderPinModal(true)} className="bg-[#d36647] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
+                <h3 className="font-bold text-2xl text-center grid-text-shadow-blue tracking-wide leading-snug">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
               </div>
-              <div onClick={() => setCurrentView('dates')} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center relative">
-                  <i className="fas fa-calendar-check text-2xl"></i>
-                  {dates.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>}
-                </div>
-                <h3 className="font-bold text-gray-800 text-center">স্মরণীয়<br/>তারিখ</h3>
+              <div onClick={() => setCurrentView('dates')} className="bg-[#de8734] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3] relative">
+                {dates.length > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-ping"></span>}
+                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">স্মরণীয়<br/>তারিখ</h3>
               </div>
-              <div onClick={() => setCurrentView('plans')} className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-[2rem] p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/50">
-                <div className="w-14 h-14 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center"><i className="fas fa-bullseye text-2xl"></i></div>
-                <h3 className="font-bold text-gray-800 text-center">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
+              <div onClick={() => setCurrentView('plans')} className="bg-[#78c773] rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm hover:opacity-90 active:scale-95 transition-all aspect-[4/3]">
+                <h3 className="font-bold text-2xl text-white text-center grid-text-white-shadow tracking-wide leading-snug">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
               </div>
             </div>
           );
@@ -305,11 +365,11 @@
                       <h3 className="text-3xl font-extrabold text-emerald-600">{formatMoney(income)}</h3>
                     </div>
                     <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm">
-                      <p className="text-gray-600 text-sm font-medium mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
+                      <p className="text-gray-600 text-sm font-medium mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
                       <h3 className="text-3xl font-extrabold text-rose-600">{formatMoney(expense)}</h3>
                     </div>
                     <div className="bg-indigo-500 text-white rounded-[2rem] p-6 shadow-md">
-                      <p className="text-white/80 text-sm font-medium mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
+                      <p className="text-white/80 text-sm font-medium mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
                       <h3 className="text-3xl font-extrabold">{formatMoney(totalBalance)}</h3>
                     </div>
                   </div>
@@ -340,12 +400,12 @@
                 {financeSubView === 'transactions' && (
                   <div className="space-y-4">
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-emerald-100 text-emerald-700 rounded-xl font-bold text-sm">আয় যোগ</button>
-                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-rose-100 text-rose-700 rounded-xl font-bold text-sm">ব্যয় যোগ</button>
+                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-emerald-100 text-emerald-700 rounded-xl font-bold text-sm">আয় যোগ</button>
+                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-rose-100 text-rose-700 rounded-xl font-bold text-sm">ব্যয় যোগ</button>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-amber-100 text-amber-700 rounded-xl font-bold text-sm">ধার নিয়েছি</button>
-                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold text-sm">ধার দিয়েছি / বকেয়া</button>
+                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-amber-100 text-amber-700 rounded-xl font-bold text-sm">ধার নিয়েছি</button>
+                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold text-sm">ধার দিয়েছি / বকেয়া</button>
                     </div>
                     
                     <div className="mt-4 space-y-3">
@@ -382,17 +442,23 @@
               <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন সদস্য</button>
               <div className="grid grid-cols-2 gap-4">
                 {sortedMembers.map(m => (
-                  <div key={m.id} className="bg-white/50 rounded-2xl p-3 text-center relative overflow-hidden group">
-                    <div className="w-20 h-20 mx-auto rounded-full bg-gray-200 mb-3 overflow-hidden flex items-center justify-center">
-                      {m.imageUrl ? <img src={m.imageUrl} className="w-full h-full object-cover"/> : <i className="fas fa-user text-3xl text-gray-400"></i>}
+                  <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-sm group cursor-pointer border border-white/50 bg-white/20">
+                    {m.imageUrl ? (
+                      <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                    ) : (
+                      <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col items-center justify-center">
+                         <i className="fas fa-user text-4xl text-indigo-200 mb-2"></i>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    
+                    <div className="absolute bottom-0 left-0 w-full p-4">
+                      <p className="text-indigo-300 text-xs font-semibold mb-1 tracking-wide uppercase">{m.relation}</p>
+                      <h3 className="text-xl font-bold text-white leading-tight drop-shadow-md">{m.name}</h3>
                     </div>
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">{m.relation}</span>
-                    <h4 className="font-bold text-gray-800 mt-2">{m.name}</h4>
-                    <p className="text-xs text-gray-500 mt-1">{m.mobile}</p>
-                    <div className="mt-3 flex justify-center gap-2">
-                      <button onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="p-2 bg-white rounded-md text-indigo-500"><i className="fas fa-pen"></i></button>
-                      <button onClick={() => deleteData('family_members', m.id)} className="p-2 bg-white rounded-md text-rose-500"><i className="fas fa-trash"></i></button>
-                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); deleteData('family_members', m.id); }} className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/80 hover:bg-rose-500 transition-colors">
+                        <i className="fas fa-trash text-sm"></i>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -420,9 +486,9 @@
               <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold flex justify-center items-center gap-2"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
               {dates.map(d => (
                 <div key={d.id} className="bg-white/60 rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex flex-col items-center justify-center font-bold">
+                  <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex flex-col items-center justify-center font-bold flex-shrink-0">
                     <span className="text-xs uppercase">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-lg leading-none">{new Date(d.date).getDate()}</span>
+                    <span className="text-xl leading-none">{new Date(d.date).getDate()}</span>
                   </div>
                   <div className="flex-1">
                     <h4 className="font-bold text-gray-800">{d.title}</h4>
@@ -467,7 +533,7 @@
                   {p.budget && <p className="mt-3 font-bold text-green-700 bg-green-100 inline-block px-3 py-1 rounded-lg text-sm">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
                   <div className="mt-4 flex gap-3">
                     <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-sm font-medium text-indigo-600">এডিট</button>
-                    <button onClick={() => deleteData('future_plans', p.id)} className="text-sm font-medium text-rose-600">বাস্তবায়ন হয়েছে / ডিলেট</button>
+                    <button onClick={() => deleteData('future_plans', p.id)} className="text-sm font-medium text-rose-600">বাস্তবায়ন হয়েছে / ডিলেট</button>
                   </div>
                 </div>
               ))}
@@ -475,16 +541,16 @@
           );
 
           return (
-            <div className="min-h-screen bg-gradient-to-tr from-rose-100 via-indigo-50 to-teal-50 pb-10 font-sans">
-              <header className="px-6 pt-12 pb-6 sticky top-0 bg-white/30 backdrop-blur-xl z-30 border-b border-white/40">
+            <div className="min-h-screen bg-[#f4f7fb] pb-10 font-sans">
+              <header className="px-6 pt-12 pb-6 sticky top-0 bg-[#f4f7fb]/80 backdrop-blur-xl z-30 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h1 className="text-2xl font-extrabold text-indigo-800">তানিয়ার লকার</h1>
+                    <h1 className="text-2xl font-extrabold text-indigo-800">TANIYA'S WORLD</h1>
                     {currentView !== 'dashboard' && (
-                      <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-indigo-600 font-bold mt-2 bg-white/50 px-3 py-1 rounded-full"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
+                      <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-indigo-600 font-bold mt-2 bg-white px-3 py-1 rounded-full shadow-sm"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
                     )}
                   </div>
-                  <button onClick={() => setAuthStatus('locked')} className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center text-rose-600 shadow-sm"><i className="fas fa-lock"></i></button>
+                  <button onClick={() => setAuthStatus('locked')} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-600 shadow-sm border border-gray-200"><i className="fas fa-lock"></i></button>
                 </div>
               </header>
 
@@ -501,13 +567,13 @@
               {/* Action PIN Modal */}
               {actionPinModal.show && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                  <div className="bg-white w-full max-w-xs rounded-3xl p-6 text-center">
+                  <div className="bg-[#1e1f2e] w-full max-w-xs rounded-[2rem] p-6 text-center border border-white/10">
                     <i className="fas fa-exclamation-triangle text-rose-500 text-4xl mx-auto mb-3"></i>
-                    <h3 className="font-bold text-gray-800 mb-4">{actionPinModal.title}</h3>
-                    <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} placeholder="6137 লিখুন" className="w-full bg-gray-100 rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border-2 focus:border-rose-300"/>
+                    <h3 className="font-bold text-white mb-4">{actionPinModal.title}</h3>
+                    <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} placeholder="PIN লিখুন" className="w-full bg-[#2a2b3d] text-white rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border border-white/5 focus:border-rose-500"/>
                     <div className="flex gap-2">
-                      <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-2 bg-gray-200 rounded-xl font-bold text-gray-700">বাতিল</button>
-                      <button onClick={verifyActionAndExecute} className="flex-1 py-2 bg-rose-500 rounded-xl font-bold text-white">নিশ্চিত করুন</button>
+                      <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-gray-300">বাতিল</button>
+                      <button onClick={verifyActionAndExecute} className="flex-1 py-3 bg-rose-500 rounded-xl font-bold text-white">নিশ্চিত করুন</button>
                     </div>
                   </div>
                 </div>
@@ -516,14 +582,14 @@
               {/* Password Folder PIN Modal */}
               {passFolderPinModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                  <div className="bg-gray-900 w-full max-w-xs rounded-3xl p-6 text-center border border-gray-700">
+                  <div className="bg-[#1e1f2e] w-full max-w-xs rounded-[2rem] p-6 text-center border border-white/10">
                     <i className="fas fa-key text-orange-500 text-4xl mx-auto mb-3"></i>
                     <h3 className="font-bold text-white mb-2">সিকিউর ফোল্ডার</h3>
-                    <p className="text-xs text-gray-400 mb-4">পাসওয়ার্ড দেখতে পিন প্রয়োজন</p>
-                    <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} placeholder="8019 লিখুন" className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border border-gray-600 focus:border-orange-500"/>
+                    <p className="text-xs text-gray-400 mb-4">পাসওয়ার্ড দেখতে পিন প্রয়োজন</p>
+                    <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} placeholder="PIN লিখুন" className="w-full bg-[#2a2b3d] text-white rounded-xl px-4 py-3 text-center font-bold tracking-widest mb-4 outline-none border border-white/5 focus:border-orange-500"/>
                     <div className="flex gap-2">
-                      <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-2 bg-gray-700 rounded-xl font-bold text-white">বাতিল</button>
-                      <button onClick={openPasswordFolder} className="flex-1 py-2 bg-orange-600 rounded-xl font-bold text-white">প্রবেশ করুন</button>
+                      <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-gray-300">বাতিল</button>
+                      <button onClick={openPasswordFolder} className="flex-1 py-3 bg-orange-500 rounded-xl font-bold text-white">প্রবেশ করুন</button>
                     </div>
                   </div>
                 </div>
@@ -531,11 +597,11 @@
 
               {/* Data Entry Modals */}
               {activeModal && (
-                <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/40 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4">
-                  <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
+                  <div className="bg-[#1e1f2e] w-full sm:max-w-md rounded-t-[2rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto border border-white/10">
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-800">তথ্য আপডেট</h3>
-                      <button onClick={() => setActiveModal(null)} className="p-3 bg-gray-100 rounded-full"><i className="fas fa-times"></i></button>
+                      <h3 className="text-xl font-bold text-white">তথ্য আপডেট</h3>
+                      <button onClick={() => setActiveModal(null)} className="p-2 bg-white/5 text-gray-400 rounded-full hover:text-white"><i className="fas fa-times"></i></button>
                     </div>
 
                     <form onSubmit={(e) => {
@@ -576,90 +642,92 @@
                       
                       {activeModal === 'account' && (
                         <>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা, বিকাশ পার্সোনাল)" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <select name="type" defaultValue={editingItem?.type || 'bank'} className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500">
+                          <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা, বিকাশ পার্সোনাল)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <select name="type" defaultValue={editingItem?.type || 'bank'} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
                             <option value="cash">ক্যাশ (নগদ টাকা)</option>
                             <option value="bank">ব্যাংক</option>
                             <option value="bkash">বিকাশ/নগদ</option>
                           </select>
-                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
+                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
                         </>
                       )}
 
                       {activeModal === 'transaction' && (
                         <>
-                          <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <select name="accountId" defaultValue={editingItem?.accountId} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500">
+                          <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <select name="accountId" defaultValue={editingItem?.accountId} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
                             <option value="">কোন একাউন্ট থেকে?</option>
                             {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.balance)})</option>)}
                           </select>
-                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
                           <input type="hidden" name="type" value={editingItem?.type || 'income'} />
                         </>
                       )}
 
                       {activeModal === 'member' && (
                         <>
-                          <div className="flex flex-col items-center mb-4">
-                             <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden mb-3 relative group">
+                          <div className="flex flex-col items-center mb-6">
+                             <div className="w-28 h-28 rounded-full bg-[#2a2b3d] border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden mb-3 relative group">
                                 {(uploadedImage || editingItem?.imageUrl) ? (
                                   <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
-                                  <i className="fas fa-user text-4xl text-gray-400"></i>
+                                  <i className="fas fa-user text-4xl text-gray-500"></i>
                                 )}
                                 <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                              </div>
-                             <div className="text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full flex items-center gap-1">
+                             <div className="text-sm font-medium text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-full flex items-center gap-2">
                                 <i className="fas fa-upload"></i> ছবি নির্বাচন করুন
                              </div>
                           </div>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে, মেয়ে, মা, বাবা...)" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
+                          <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে, মেয়ে, মা, বাবা...)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
                         </>
                       )}
 
                       {activeModal === 'story' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
                         </>
                       )}
 
                       {activeModal === 'date' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500">
+                          <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500">
                             <option value="জন্মদিন">জন্মদিন</option>
                             <option value="বিবাহ বার্ষিকী">বিবাহ বার্ষিকী</option>
                             <option value="মৃত্যু বার্ষিকী">মৃত্যু বার্ষিকী</option>
                             <option value="অন্যান্য">অন্যান্য</option>
                           </select>
-                          <input name="date" type="date" defaultValue={editingItem?.date} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
+                          <input name="date" type="date" defaultValue={editingItem?.date} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 style-date" />
                         </>
                       )}
 
                       {activeModal === 'password' && (
                         <>
-                          <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <input name="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
+                          <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <input name="password" type="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
                         </>
                       )}
 
                       {activeModal === 'plan' && (
                         <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
-                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500 resize-none"></textarea>
-                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="w-full bg-gray-50 border rounded-xl p-3 outline-none focus:border-indigo-500" />
+                          <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
+                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500 resize-none"></textarea>
+                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="w-full bg-[#2a2b3d] text-white border border-white/5 rounded-xl p-4 outline-none focus:border-indigo-500" />
                         </>
                       )}
 
-                      <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg mt-4 shadow-lg">
-                        সেভ করুন
-                      </button>
+                      <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 rounded-xl border border-white/10 text-gray-300 font-bold">বাতিল</button>
+                        <button type="submit" className="flex-1 py-4 bg-indigo-500 text-white rounded-xl font-bold shadow-lg">সংরক্ষণ করুন</button>
+                      </div>
                     </form>
                   </div>
                 </div>
