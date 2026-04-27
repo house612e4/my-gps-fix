@@ -33,7 +33,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const firebaseConfig = {
           apiKey: "AIzaSyA9oKyU5LVspCQNtEbuPYsXe9yzvm63A8U",
@@ -95,6 +95,8 @@
         ];
 
         function App() {
+          const videoRef = useRef(null);
+          
           const [user, setUser] = useState(null);
           const [isInitializing, setIsInitializing] = useState(true);
 
@@ -159,8 +161,7 @@
                           }
                       }
                   } catch (error) {
-                      console.error("Firebase permission error:", error);
-                      alert("ফায়ারবেস ডেটাবেসের রুলস আপডেট না থাকায় ডেটা সেভ হচ্ছে না। దয়া করে রুলস ট্রু (true) করে দিন।");
+                      console.error("Firebase error:", error);
                   }
               };
               seedData();
@@ -186,19 +187,20 @@
 
           const handleMainLogin = () => {
             if (pinInput === '7371') {
+              if (videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                  videoRef.current.play().catch(e => console.log("Video error:", e));
+              }
+              
               setAuthStatus('video');
               setPinInput('');
-              
-              setTimeout(() => {
-                  const vid = document.getElementById('splashVideo');
-                  if (vid) {
-                      vid.play().catch(e => console.log("Video play error:", e));
-                  }
-              }, 100);
 
               setTimeout(() => {
                 setAuthStatus('unlocked');
                 setCurrentView('dashboard');
+                if (videoRef.current) {
+                    videoRef.current.pause();
+                }
               }, 7000);
             } else {
               setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
@@ -290,56 +292,6 @@
           const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
 
           if (isInitializing) return <div className="min-h-screen bg-black flex items-center justify-center text-white">লোড হচ্ছে...</div>;
-
-          if (authStatus === 'locked') {
-            return (
-              <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundImage: "url('./mahsin.jpeg')", backgroundSize: "cover", backgroundPosition: "center" }}>
-                <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
-                
-                <div className="relative z-10 w-full max-w-sm flex flex-col items-center bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-[2.5rem] shadow-2xl">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
-                    <i className="fas fa-lock text-white text-3xl"></i>
-                  </div>
-                  <h1 className="text-3xl font-extrabold text-white mb-2 tracking-widest drop-shadow-lg text-center">TANIYA'S WORLD <span className="text-yellow-400">✨</span></h1>
-                  <p className="text-gray-200 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
-                  
-                  <div className="w-full relative mb-6">
-                    <input
-                      type="password"
-                      value={pinInput}
-                      onChange={(e) => setPinInput(e.target.value)}
-                      className="glass-input w-full rounded-2xl py-4 text-center text-3xl tracking-[0.4em] shadow-inner"
-                    />
-                  </div>
-                  <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 hover:opacity-90 text-white font-bold text-lg shadow-xl active:scale-95 transition-all">
-                    Unlock
-                  </button>
-                </div>
-                
-                {actionPinModal.show && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-                    <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-[2rem] p-6 w-full max-w-xs text-center shadow-2xl">
-                      <i className="fas fa-exclamation-triangle text-rose-400 text-5xl mx-auto mb-4"></i>
-                      <h3 className="text-lg font-bold mb-4 text-white">{actionPinModal.title}</h3>
-                      <button onClick={() => setActionPinModal({show:false})} className="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-medium text-white transition-all">বন্ধ করুন</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          if (authStatus === 'video') {
-            return (
-              <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden relative">
-                <video id="splashVideo" src="./splash_video.mp4" autoPlay muted playsInline className="w-full h-full object-cover opacity-90" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/30">
-                  <h2 className="text-white text-4xl font-extrabold tracking-widest drop-shadow-2xl">স্বাগতম তানিয়া</h2>
-                  <p className="text-gray-300 mt-3 text-sm tracking-wide">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
-                </div>
-              </div>
-            );
-          }
 
           const renderDashboardCards = () => (
             <div className="grid grid-cols-2 gap-4">
@@ -565,35 +517,71 @@
           );
 
           return (
-            <div className="min-h-screen relative font-sans">
+            <div className="min-h-screen relative font-sans text-white">
               <div className="fixed inset-0 z-[-1]">
-                  <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('./mahsin.jpeg')" }}></div>
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xl"></div>
+                  <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('public/mahsin.jpeg')" }}></div>
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
               </div>
 
-              <header className="px-6 pt-12 pb-6 sticky top-0 z-30 bg-black/30 backdrop-blur-2xl border-b border-white/10">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h1 className="text-3xl font-extrabold text-white tracking-widest drop-shadow-md">TANIYA'S WORLD</h1>
-                    {currentView !== 'dashboard' && (
-                      <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 text-xs text-white font-bold mt-3 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full hover:bg-white/20 transition-all"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
-                    )}
+              {/* Hidden Video element loaded from public path, kept visible only when needed */}
+              <div className={`fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-300 ${authStatus === 'video' ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
+                  <video ref={videoRef} src="public/splash_video.mp4" playsInline className="w-full h-full object-cover opacity-90" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/30">
+                    <h2 className="text-white text-4xl font-extrabold tracking-widest drop-shadow-2xl">স্বাগতম তানিয়া</h2>
+                    <p className="text-gray-300 mt-3 text-sm tracking-wide">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
                   </div>
-                  <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
+              </div>
+
+              {authStatus === 'locked' && (
+                <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+                  <div className="w-full max-w-sm flex flex-col items-center bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-[2.5rem] shadow-2xl">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
+                      <i className="fas fa-lock text-white text-3xl"></i>
+                    </div>
+                    <h1 className="text-3xl font-extrabold text-white mb-2 tracking-widest drop-shadow-lg text-center">TANIYA'S WORLD <span className="text-yellow-400">✨</span></h1>
+                    <p className="text-gray-200 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
+                    
+                    <div className="w-full relative mb-6">
+                      <input
+                        type="password"
+                        value={pinInput}
+                        onChange={(e) => setPinInput(e.target.value)}
+                        className="glass-input w-full rounded-2xl py-4 text-center text-3xl tracking-[0.4em] shadow-inner"
+                      />
+                    </div>
+                    <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 hover:opacity-90 text-white font-bold text-lg shadow-xl active:scale-95 transition-all">
+                      Unlock
+                    </button>
+                  </div>
                 </div>
-              </header>
+              )}
 
-              <main className="px-6 pt-8 pb-12">
-                {currentView === 'dashboard' && renderDashboardCards()}
-                {currentView === 'finance' && renderFinance()}
-                {currentView === 'family' && renderMembers()}
-                {currentView === 'stories' && renderStories()}
-                {currentView === 'dates' && renderDates()}
-                {currentView === 'passwords' && renderPasswords()}
-                {currentView === 'plans' && renderPlans()}
-              </main>
+              {authStatus === 'unlocked' && (
+                <div className="min-h-screen flex flex-col relative z-10">
+                  <header className="px-6 pt-12 pb-6 sticky top-0 z-30 bg-black/30 backdrop-blur-2xl border-b border-white/10">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h1 className="text-3xl font-extrabold text-white tracking-widest drop-shadow-md">TANIYA'S WORLD</h1>
+                        {currentView !== 'dashboard' && (
+                          <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 text-xs text-white font-bold mt-3 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full hover:bg-white/20 transition-all"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
+                        )}
+                      </div>
+                      <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
+                    </div>
+                  </header>
 
-              {/* Action PIN Modal */}
+                  <main className="px-6 pt-8 pb-12 flex-1">
+                    {currentView === 'dashboard' && renderDashboardCards()}
+                    {currentView === 'finance' && renderFinance()}
+                    {currentView === 'family' && renderMembers()}
+                    {currentView === 'stories' && renderStories()}
+                    {currentView === 'dates' && renderDates()}
+                    {currentView === 'passwords' && renderPasswords()}
+                    {currentView === 'plans' && renderPlans()}
+                  </main>
+                </div>
+              )}
+
               {actionPinModal.show && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
                   <div className="bg-white/10 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
@@ -608,7 +596,6 @@
                 </div>
               )}
 
-              {/* Password Folder PIN Modal */}
               {passFolderPinModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
                   <div className="bg-white/10 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
@@ -624,7 +611,6 @@
                 </div>
               )}
 
-              {/* Data Entry Modals */}
               {activeModal && (
                 <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/70 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
                   <div className="bg-[#1e293b]/90 backdrop-blur-2xl border border-white/20 w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
