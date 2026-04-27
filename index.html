@@ -36,13 +36,13 @@
         const { useState, useEffect, useRef } = React;
 
         const firebaseConfig = {
-          apiKey: "AIzaSyA9oKyU5LVspCQNtEbuPYsXe9yzvm63A8U",
-          authDomain: "lillahi-etimkhana.firebaseapp.com",
-          projectId: "lillahi-etimkhana",
-          storageBucket: "lillahi-etimkhana.firebasestorage.app",
-          messagingSenderId: "777373297360",
-          appId: "1:777737297360:web:61c04a82a1098204ea8cd5",
-          measurementId: "G-H8ZBFHJE6M"
+          apiKey: "AIzaSyCf_zIDQGrjC5OMo-Px5s5vcmMdZlVMbkM",
+          authDomain: "taniya-world.firebaseapp.com",
+          projectId: "taniya-world",
+          storageBucket: "taniya-world.firebasestorage.app",
+          messagingSenderId: "840512527967",
+          appId: "1:840512527967:web:e4d88d83f1686b838245ea",
+          measurementId: "G-DKJKK3E529"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -187,20 +187,12 @@
 
           const handleMainLogin = () => {
             if (pinInput === '7371') {
-              if (videoRef.current) {
-                  videoRef.current.currentTime = 0;
-                  videoRef.current.play().catch(e => console.log("Video error:", e));
-              }
-              
               setAuthStatus('video');
               setPinInput('');
-
+              
               setTimeout(() => {
                 setAuthStatus('unlocked');
                 setCurrentView('dashboard');
-                if (videoRef.current) {
-                    videoRef.current.pause();
-                }
               }, 7000);
             } else {
               setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
@@ -523,10 +515,17 @@
                   <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
               </div>
 
-              {/* Video container without the text overlay */}
-              <div className={`fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-300 ${authStatus === 'video' ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
-                  <video ref={videoRef} src="public/splash_video.mp4" playsInline className="w-full h-full object-cover opacity-90" />
-              </div>
+              {authStatus === 'video' && (
+                <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden">
+                    <video 
+                        ref={videoRef} 
+                        src="public/splash_video.mp4" 
+                        playsInline 
+                        autoPlay
+                        className="w-full h-full object-cover opacity-100" 
+                    />
+                </div>
+              )}
 
               {authStatus === 'locked' && (
                 <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
@@ -655,7 +654,7 @@
                         <>
                           <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
                           <select name="type" defaultValue={editingItem?.type || 'bank'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
-                            <option value="cash">ক্যাশ (ন নগদ টাকা)</option>
+                            <option value="cash">ক্যাশ (নগদ টাকা)</option>
                             <option value="bank">ব্যাংক</option>
                             <option value="bkash">বিকাশ/নগদ</option>
                           </select>
