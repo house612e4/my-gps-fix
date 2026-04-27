@@ -523,13 +523,9 @@
                   <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
               </div>
 
-              {/* Hidden Video element loaded from public path, kept visible only when needed */}
+              {/* Video container without the text overlay */}
               <div className={`fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-300 ${authStatus === 'video' ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
                   <video ref={videoRef} src="public/splash_video.mp4" playsInline className="w-full h-full object-cover opacity-90" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/30">
-                    <h2 className="text-white text-4xl font-extrabold tracking-widest drop-shadow-2xl">স্বাগতম তানিয়া</h2>
-                    <p className="text-gray-300 mt-3 text-sm tracking-wide">ড্যাশবোর্ড প্রস্তুত হচ্ছে...</p>
-                  </div>
               </div>
 
               {authStatus === 'locked' && (
@@ -659,7 +655,7 @@
                         <>
                           <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
                           <select name="type" defaultValue={editingItem?.type || 'bank'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
-                            <option value="cash">ক্যাশ (নগদ টাকা)</option>
+                            <option value="cash">ক্যাশ (ন নগদ টাকা)</option>
                             <option value="bank">ব্যাংক</option>
                             <option value="bkash">বিকাশ/নগদ</option>
                           </select>
