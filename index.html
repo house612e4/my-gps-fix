@@ -133,8 +133,8 @@
           useEffect(() => {
             if (!user) return;
 
-            const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
-            const pinRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
+            const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', 'taniya_admin_123', colName);
+            const pinRef = doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'settings', 'pins');
 
             const unsubs = [
               onSnapshot(pinRef, (snap) => {
@@ -146,11 +146,11 @@
               }, console.error),
               
               onSnapshot(getCollectionRef('important_dates'), (snap) => {
-                  const hasSeeded = localStorage.getItem(`seeded_dates_${user.uid}`);
+                  const hasSeeded = localStorage.getItem('seeded_dates_taniya');
                   if (snap.empty && !hasSeeded) {
                       setDates(initialSeedDates);
-                      localStorage.setItem(`seeded_dates_${user.uid}`, 'true');
-                      initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d).catch(console.error));
+                      localStorage.setItem('seeded_dates_taniya', 'true');
+                      initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', d.id), d).catch(console.error));
                   } else {
                       setDates(snap.docs.map(d => ({id: d.id, ...d.data()})));
                   }
@@ -229,7 +229,7 @@
             setIsSaving(true);
             try {
               const docId = id || Date.now().toString();
-              const docRef = doc(db, 'artifacts', appId, 'users', user.uid, collectionName, docId);
+              const docRef = doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', collectionName, docId);
               await setDoc(docRef, data);
               setActiveModal(null);
             } catch (err) {
@@ -243,7 +243,7 @@
           const deleteData = async (collectionName, id) => {
             if (!user) return;
             requireSecureAction(async () => {
-              await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, collectionName, id));
+              await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', collectionName, id));
             }, 'এই তথ্যটি মুছে ফেলতে চান?');
           };
 
@@ -258,7 +258,7 @@
             try {
               const fd = new FormData(e.target);
               const data = Object.fromEntries(fd.entries());
-              const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
+              const ref = doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'settings', 'pins');
               await setDoc(ref, data);
               setActiveModal(null);
             } catch (err) {
