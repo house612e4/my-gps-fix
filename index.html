@@ -31,7 +31,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const { useState, useEffect, useRef } = React;
 
@@ -142,34 +142,42 @@
           }, []);
 
           useEffect(() => {
+              if (!user) return;
+              const seedData = async () => {
+                  try {
+                      const membersRef = collection(db, 'artifacts', appId, 'users', user.uid, 'family_members');
+                      const mSnap = await getDocs(membersRef);
+                      if (mSnap.empty) {
+                          for (const m of initialSeedMembers) {
+                              await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m);
+                          }
+                      }
+                      
+                      const datesRef = collection(db, 'artifacts', appId, 'users', user.uid, 'important_dates');
+                      const dSnap = await getDocs(datesRef);
+                      if (dSnap.empty) {
+                          for (const d of initialSeedDates) {
+                              await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d);
+                          }
+                      }
+                  } catch (error) {
+                      console.error("Firebase error:", error);
+                  }
+              };
+              seedData();
+          }, [user]);
+
+          useEffect(() => {
             if (!user) return;
 
             const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
 
             const unsubs = [
-              onSnapshot(getCollectionRef('family_members'), (snap) => {
-                  if (snap.empty && !localStorage.getItem(`seeded_members_${user.uid}`)) {
-                      setMembers(initialSeedMembers);
-                      localStorage.setItem(`seeded_members_${user.uid}`, 'true');
-                      initialSeedMembers.forEach(m => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m));
-                  } else {
-                      setMembers(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                  }
-              }, console.error),
-              
-              onSnapshot(getCollectionRef('important_dates'), (snap) => {
-                  if (snap.empty && !localStorage.getItem(`seeded_dates_${user.uid}`)) {
-                      setDates(initialSeedDates);
-                      localStorage.setItem(`seeded_dates_${user.uid}`, 'true');
-                      initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d));
-                  } else {
-                      setDates(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                  }
-              }, console.error),
-
               onSnapshot(getCollectionRef('finance_accounts'), (snap) => setAccounts(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('finance_transactions'), (snap) => setTransactions(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+              onSnapshot(getCollectionRef('family_members'), (snap) => setMembers(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('stories'), (snap) => setStories(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+              onSnapshot(getCollectionRef('important_dates'), (snap) => setDates(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('passwords'), (snap) => setPasswords(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('future_plans'), (snap) => setPlans(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error)
             ];
@@ -283,7 +291,7 @@
           const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্বামী সাবেক': 3, 'ছেলে': 4, 'মেয়ে': 4, 'মা': 5, 'বাবা': 5, 'ভাই': 6, 'বোন': 6, 'ভাসুর': 7, 'ননদ': 8 };
           const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
 
-          if (isInitializing) return <div className="min-h-screen bg-[#0f172a]"></div>;
+          if (isInitializing) return <div className="min-h-screen bg-black flex items-center justify-center text-white">লোড হচ্ছে...</div>;
 
           const renderDashboardCards = () => (
             <div className="grid grid-cols-2 gap-4">
@@ -751,3 +759,6 @@
     </script>
 </body>
 </html>
+
+
+```
