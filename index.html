@@ -600,7 +600,7 @@
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => openModal('pinSettings')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-indigo-500 hover:border-indigo-500 hover:text-white transition-all"><i className="fas fa-gear"></i></button>
+                        <button onClick={() => requireSecureAction(() => openModal('pinSettings'), 'পিন পরিবর্তন করতে Action PIN দিন')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-indigo-500 hover:border-indigo-500 hover:text-white transition-all"><i className="fas fa-gear"></i></button>
                         <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
                       </div>
                     </div>
@@ -660,17 +660,17 @@
                     
                     <div>
                       <label className="block text-sm text-gray-300 mb-2 ml-1">Main PIN (লক স্ক্রিন)</label>
-                      <input name="main" defaultValue={pins.main} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+                      <input type="password" name="main" defaultValue={pins.main} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
                     </div>
                     
                     <div>
                       <label className="block text-sm text-gray-300 mb-2 ml-1">Action PIN (তথ্য মোছার জন্য)</label>
-                      <input name="action" defaultValue={pins.action} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+                      <input type="password" name="action" defaultValue={pins.action} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
                     </div>
                     
                     <div>
                       <label className="block text-sm text-gray-300 mb-2 ml-1">Password PIN (সিকিউর ফোল্ডার)</label>
-                      <input name="password" defaultValue={pins.password} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+                      <input type="password" name="password" defaultValue={pins.password} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
                     </div>
 
                     <div className="flex gap-3 pt-4">
