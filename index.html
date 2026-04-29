@@ -19,6 +19,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); font-family: sans-serif; letter-spacing: normal; font-size: 14px; }
         .glass-input:focus { border-color: rgba(255, 255, 255, 0.4); outline: none; }
@@ -31,7 +32,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const { useState, useEffect, useRef } = React;
 
@@ -141,43 +142,38 @@
             return () => unsubscribe();
           }, []);
 
-          useEffect(() => {
-              if (!user) return;
-              const seedData = async () => {
-                  try {
-                      const membersRef = collection(db, 'artifacts', appId, 'users', user.uid, 'family_members');
-                      const mSnap = await getDocs(membersRef);
-                      if (mSnap.empty) {
-                          for (const m of initialSeedMembers) {
-                              await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m);
-                          }
-                      }
-                      
-                      const datesRef = collection(db, 'artifacts', appId, 'users', user.uid, 'important_dates');
-                      const dSnap = await getDocs(datesRef);
-                      if (dSnap.empty) {
-                          for (const d of initialSeedDates) {
-                              await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d);
-                          }
-                      }
-                  } catch (error) {
-                      console.error("Firebase error:", error);
-                  }
-              };
-              seedData();
-          }, [user]);
-
+          // রিয়েল-টাইম ডেটা এবং ইনস্ট্যান্ট লোড সিস্টেম
           useEffect(() => {
             if (!user) return;
 
             const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
 
             const unsubs = [
+              onSnapshot(getCollectionRef('family_members'), (snap) => {
+                  const hasSeeded = localStorage.getItem(`seeded_members_${user.uid}`);
+                  if (snap.empty && !hasSeeded) {
+                      setMembers(initialSeedMembers); // সাথে সাথে স্ক্রিনে দেখাবে
+                      localStorage.setItem(`seeded_members_${user.uid}`, 'true');
+                      initialSeedMembers.forEach(m => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m).catch(console.error));
+                  } else {
+                      setMembers(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                  }
+              }, console.error),
+              
+              onSnapshot(getCollectionRef('important_dates'), (snap) => {
+                  const hasSeeded = localStorage.getItem(`seeded_dates_${user.uid}`);
+                  if (snap.empty && !hasSeeded) {
+                      setDates(initialSeedDates); // সাথে সাথে স্ক্রিনে দেখাবে
+                      localStorage.setItem(`seeded_dates_${user.uid}`, 'true');
+                      initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d).catch(console.error));
+                  } else {
+                      setDates(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                  }
+              }, console.error),
+
               onSnapshot(getCollectionRef('finance_accounts'), (snap) => setAccounts(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('finance_transactions'), (snap) => setTransactions(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('family_members'), (snap) => setMembers(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('stories'), (snap) => setStories(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('important_dates'), (snap) => setDates(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('passwords'), (snap) => setPasswords(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
               onSnapshot(getCollectionRef('future_plans'), (snap) => setPlans(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error)
             ];
@@ -759,6 +755,3 @@
     </script>
 </body>
 </html>
-
-
-```
