@@ -50,12 +50,12 @@
 
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const { useState, useEffect, useRef } = React;
 
-        const firebaseConfig = {
+        const defaultFirebaseConfig = {
           apiKey: "AIzaSyCf_zIDQGrjC5OMo-Px5s5vcmMdZlVMbkM",
           authDomain: "taniya-world.firebaseapp.com",
           projectId: "taniya-world",
@@ -64,11 +64,12 @@
           appId: "1:840512527967:web:e4d88d83f1686b838245ea",
           measurementId: "G-DKJKK3E529"
         };
-
+        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "taniya-locker-app";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : "taniya-locker-app";
 
         const initialSeedDates = [
             { id: "d1", title: "নাহিদা ইয়াছমিন তানিয়া এর জন্মদিন", type: "জন্মদিন", date: "1994-01-30" },
@@ -105,11 +106,17 @@
           const [financeSubView, setFinanceSubView] = useState('overview');
           
           const [uploadedImage, setUploadedImage] = useState(null);
+          const [isSaving, setIsSaving] = useState(false);
+          const [modalError, setModalError] = useState('');
 
           useEffect(() => {
             const initAuth = async () => {
               try {
-                await signInAnonymously(auth);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                  await signInAnonymously(auth);
+                }
               } catch (error) {
                 console.error("Auth error:", error);
               }
@@ -205,12 +212,32 @@
             }
           };
 
+          const openModal = (type, item = null) => {
+            setModalError('');
+            setIsSaving(false);
+            setEditingItem(item);
+            if (type === 'member') setUploadedImage(null);
+            setActiveModal(type);
+          };
+
           const saveData = async (collectionName, data, id = null) => {
-            if (!user) return;
-            const docId = id || Date.now().toString();
-            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, collectionName, docId);
-            await setDoc(docRef, data);
-            setActiveModal(null);
+            setModalError('');
+            if (!user) {
+              setModalError('ডাটাবেসের সাথে কানেক্ট করা যাচ্ছে না। ফায়ারবেস অথেন্টিকেশন চালু আছে কিনা চেক করুন।');
+              return;
+            }
+            setIsSaving(true);
+            try {
+              const docId = id || Date.now().toString();
+              const docRef = doc(db, 'artifacts', appId, 'users', user.uid, collectionName, docId);
+              await setDoc(docRef, data);
+              setActiveModal(null);
+            } catch (err) {
+              console.error(err);
+              setModalError('সংরক্ষণ করা যায়নি: ' + err.message);
+            } finally {
+              setIsSaving(false);
+            }
           };
 
           const deleteData = async (collectionName, id) => {
@@ -222,12 +249,24 @@
 
           const savePins = async (e) => {
             e.preventDefault();
-            if (!user) return;
-            const fd = new FormData(e.target);
-            const data = Object.fromEntries(fd.entries());
-            const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
-            await setDoc(ref, data);
-            setActiveModal(null);
+            setModalError('');
+            if (!user) {
+              setModalError('ডাটাবেসের সাথে কানেক্ট করা যাচ্ছে না। ফায়ারবেস অথেন্টিকেশন চালু আছে কিনা চেক করুন।');
+              return;
+            }
+            setIsSaving(true);
+            try {
+              const fd = new FormData(e.target);
+              const data = Object.fromEntries(fd.entries());
+              const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
+              await setDoc(ref, data);
+              setActiveModal(null);
+            } catch (err) {
+              console.error(err);
+              setModalError('পিন সেভ করা যায়নি: ' + err.message);
+            } finally {
+              setIsSaving(false);
+            }
           };
 
           const handleImageChange = (e) => {
@@ -334,7 +373,7 @@
 
                 {financeSubView === 'accounts' && (
                   <div className="space-y-4">
-                    <button onClick={() => { setEditingItem(null); setActiveModal('account'); }} className="w-full py-4 bg-teal-500/20 border border-teal-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-teal-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
+                    <button onClick={() => openModal('account')} className="w-full py-4 bg-teal-500/20 border border-teal-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-teal-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
                     {accounts.map(acc => (
                       <div key={acc.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex justify-between items-center shadow-lg">
                         <div>
@@ -347,7 +386,7 @@
                         <div className="text-right">
                           <p className="text-lg text-white">{formatMoney(acc.balance)}</p>
                           <div className="mt-2">
-                              <button onClick={() => requireSecureAction(() => { setEditingItem(acc); setActiveModal('account'); }, 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 hover:text-white px-2"><i className="fas fa-pen"></i></button>
+                              <button onClick={() => requireSecureAction(() => openModal('account', acc), 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 hover:text-white px-2"><i className="fas fa-pen"></i></button>
                               <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
                           </div>
                         </div>
@@ -359,12 +398,12 @@
                 {financeSubView === 'transactions' && (
                   <div className="space-y-4">
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 rounded-xl text-sm backdrop-blur-md">আয় যোগ</button>
-                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-rose-500/20 border border-rose-400/30 text-rose-300 rounded-xl text-sm backdrop-blur-md">ব্যয় যোগ</button>
+                      <button onClick={() => openModal('transaction', {type:'income'})} className="flex-1 py-3 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 rounded-xl text-sm backdrop-blur-md">আয় যোগ</button>
+                      <button onClick={() => openModal('transaction', {type:'expense'})} className="flex-1 py-3 bg-rose-500/20 border border-rose-400/30 text-rose-300 rounded-xl text-sm backdrop-blur-md">ব্যয় যোগ</button>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-amber-500/20 border border-amber-400/30 text-amber-300 rounded-xl text-sm backdrop-blur-md">ধার নিয়েছি</button>
-                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-purple-500/20 border border-purple-400/30 text-purple-300 rounded-xl text-sm backdrop-blur-md">ধার দিয়েছি</button>
+                      <button onClick={() => openModal('transaction', {type:'borrowed'})} className="flex-1 py-3 bg-amber-500/20 border border-amber-400/30 text-amber-300 rounded-xl text-sm backdrop-blur-md">ধার নিয়েছি</button>
+                      <button onClick={() => openModal('transaction', {type:'lent'})} className="flex-1 py-3 bg-purple-500/20 border border-purple-400/30 text-purple-300 rounded-xl text-sm backdrop-blur-md">ধার দিয়েছি</button>
                     </div>
                     
                     <div className="mt-6 space-y-3">
@@ -384,7 +423,7 @@
                             </div>
                           </div>
                           <div className="flex justify-end gap-4 mt-3 border-t border-white/10 pt-3">
-                            <button onClick={() => requireSecureAction(() => { setEditingItem(tr); setActiveModal('transaction'); }, 'সংশোধন করতে চান?')} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> সংশোধন</button>
+                            <button onClick={() => requireSecureAction(() => openModal('transaction', tr), 'সংশোধন করতে চান?')} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> সংশোধন</button>
                             <button onClick={() => deleteData('finance_transactions', tr.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                           </div>
                         </div>
@@ -398,7 +437,7 @@
 
           const renderMembers = () => (
             <div className="space-y-4 max-w-lg mx-auto">
-              <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-4 bg-pink-500/20 border border-pink-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-pink-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন সদস্য</button>
+              <button onClick={() => openModal('member')} className="w-full py-4 bg-pink-500/20 border border-pink-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-pink-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন সদস্য</button>
               {members.length === 0 && (
                 <div className="text-center py-10 bg-white/5 border border-white/10 rounded-2xl">
                   <i className="fas fa-users text-4xl text-white/20 mb-3"></i>
@@ -407,7 +446,7 @@
               )}
               <div className="grid grid-cols-2 gap-4">
                 {sortedMembers.map(m => (
-                  <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-xl group cursor-pointer border border-white/20 bg-black/40 backdrop-blur-md">
+                  <div key={m.id} onClick={() => openModal('member', m)} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-xl group cursor-pointer border border-white/20 bg-black/40 backdrop-blur-md">
                     {m.imageUrl ? (
                       <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"/>
                     ) : (
@@ -432,13 +471,13 @@
 
           const renderStories = () => (
             <div className="space-y-4 max-w-lg mx-auto">
-              <button onClick={() => { setEditingItem(null); setActiveModal('story'); }} className="w-full py-4 bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-indigo-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
+              <button onClick={() => openModal('story')} className="w-full py-4 bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-indigo-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
               {stories.map(s => (
                 <div key={s.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 shadow-lg">
                   <h4 className="text-xl text-white mb-3">{s.title}</h4>
                   <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{s.content}</p>
                   <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
-                    <button onClick={() => { setEditingItem(s); setActiveModal('story'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => openModal('story', s)} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
                     <button onClick={() => deleteData('stories', s.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                   </div>
                 </div>
@@ -448,7 +487,7 @@
 
           const renderDates = () => (
             <div className="space-y-4 max-w-lg mx-auto">
-              <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-4 bg-amber-500/20 border border-amber-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-amber-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
+              <button onClick={() => openModal('date')} className="w-full py-4 bg-amber-500/20 border border-amber-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-amber-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
               {dates.map(d => (
                 <div key={d.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
                   <div className="w-14 h-14 bg-black/20 border border-white/10 rounded-2xl flex flex-col items-center justify-center flex-shrink-0">
@@ -460,7 +499,7 @@
                     <p className="text-xs text-gray-400 mt-1">{d.type}</p>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => { setEditingItem(d); setActiveModal('date'); }} className="text-gray-300 hover:text-white"><i className="fas fa-pen"></i></button>
+                    <button onClick={() => openModal('date', d)} className="text-gray-300 hover:text-white"><i className="fas fa-pen"></i></button>
                     <button onClick={() => deleteData('important_dates', d.id)} className="text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i></button>
                   </div>
                 </div>
@@ -473,14 +512,14 @@
               <div className="bg-rose-500/20 backdrop-blur-md border border-rose-400/30 p-4 rounded-xl flex gap-3 items-center text-rose-200 text-sm mb-4 shadow-lg">
                 <i className="fas fa-shield-halved text-xl"></i> এটি সম্পূর্ণ সিকিউর ফোল্ডার
               </div>
-              <button onClick={() => { setEditingItem(null); setActiveModal('password'); }} className="w-full py-4 bg-orange-500/20 border border-orange-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-orange-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
+              <button onClick={() => openModal('password')} className="w-full py-4 bg-orange-500/20 border border-orange-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-orange-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
               {passwords.map(p => (
                 <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-5 shadow-lg">
                   <h4 className="text-white text-lg mb-2 flex items-center gap-2"><i className="fas fa-globe text-gray-400 text-sm"></i> {p.platform}</h4>
                   <p className="text-sm text-gray-300 mb-2"><span className="text-gray-500">ID:</span> {p.userId}</p>
                   <p className="text-sm text-gray-300 mb-4"><span className="text-gray-500">Pass:</span> <span className="bg-black/30 px-3 py-1 rounded-lg tracking-widest font-mono ml-1">{p.password}</span></p>
                   <div className="flex gap-4 border-t border-white/10 pt-3">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('password'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => openModal('password', p)} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
                     <button onClick={() => deleteData('passwords', p.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
                   </div>
                 </div>
@@ -490,14 +529,14 @@
 
           const renderPlans = () => (
             <div className="space-y-4 max-w-lg mx-auto">
-              <button onClick={() => { setEditingItem(null); setActiveModal('plan'); }} className="w-full py-4 bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-emerald-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
+              <button onClick={() => openModal('plan')} className="w-full py-4 bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-emerald-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
               {plans.map(p => (
                 <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 border-l-4 border-l-emerald-400 rounded-[2rem] p-6 shadow-lg">
                   <h4 className="text-xl text-white mb-2">{p.title}</h4>
                   <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{p.details}</p>
                   {p.budget && <p className="mt-4 text-emerald-200 bg-emerald-500/20 inline-block px-4 py-2 rounded-xl text-sm border border-emerald-500/20">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
                   <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+                    <button onClick={() => openModal('plan', p)} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
                     <button onClick={() => deleteData('future_plans', p.id)} className="text-xs text-emerald-400 hover:text-emerald-300"><i className="fas fa-check"></i> বাস্তবায়ন / ডিলেট</button>
                   </div>
                 </div>
@@ -561,7 +600,7 @@
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setActiveModal('pinSettings')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-indigo-500 hover:border-indigo-500 hover:text-white transition-all"><i className="fas fa-gear"></i></button>
+                        <button onClick={() => openModal('pinSettings')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-indigo-500 hover:border-indigo-500 hover:text-white transition-all"><i className="fas fa-gear"></i></button>
                         <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
                       </div>
                     </div>
@@ -613,6 +652,12 @@
                   <form onSubmit={savePins} className="bg-slate-900/95 backdrop-blur-2xl border border-white/20 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-5">
                     <h3 className="text-xl text-white mb-6 text-center">PIN পরিবর্তন</h3>
                     
+                    {modalError && (
+                      <div className="bg-rose-500/20 border border-rose-500/50 text-rose-200 text-sm p-3 rounded-xl mb-4 text-center">
+                        {modalError}
+                      </div>
+                    )}
+                    
                     <div>
                       <label className="block text-sm text-gray-300 mb-2 ml-1">Main PIN (লক স্ক্রিন)</label>
                       <input name="main" defaultValue={pins.main} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
@@ -630,7 +675,9 @@
 
                     <div className="flex gap-3 pt-4">
                       <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all">বাতিল</button>
-                      <button type="submit" className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all">সংরক্ষণ করুন</button>
+                      <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all disabled:opacity-50">
+                        {isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সংরক্ষণ করুন'}
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -644,7 +691,7 @@
                       <button onClick={() => setActiveModal(null)} className="w-10 h-10 bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 rounded-full hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all"><i className="fas fa-times"></i></button>
                     </div>
 
-                    <form onSubmit={(e) => {
+                    <form onSubmit={async (e) => {
                       e.preventDefault();
                       const fd = new FormData(e.target);
                       const data = Object.fromEntries(fd.entries());
@@ -676,10 +723,16 @@
                       if (editingItem) {
                         requireSecureAction(() => saveData(collectionName, {...editingItem, ...data}, editingItem.id), 'তথ্য এডিট করতে চান?');
                       } else {
-                        saveData(collectionName, data);
+                        await saveData(collectionName, data);
                       }
                     }} className="space-y-4">
                       
+                      {modalError && (
+                        <div className="bg-rose-500/20 border border-rose-500/50 text-rose-200 text-sm p-3 rounded-xl mb-4 text-center">
+                          {modalError}
+                        </div>
+                      )}
+
                       {activeModal === 'account' && (
                         <>
                           <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
@@ -766,7 +819,9 @@
 
                       <div className="flex gap-3 pt-6">
                         <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all shadow-lg">বাতিল</button>
-                        <button type="submit" className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all">সংরক্ষণ করুন</button>
+                        <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all disabled:opacity-50">
+                          {isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সংরক্ষণ করুন'}
+                        </button>
                       </div>
                     </form>
                   </div>
