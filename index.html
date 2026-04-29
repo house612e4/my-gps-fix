@@ -1,757 +1,739 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TANIYA'S WORLD</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
-    <style>
-        body { font-family: sans-serif; -webkit-tap-highlight-color: transparent; background-color: #0f172a; margin: 0; padding: 0; }
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'taniya-locker-app';
+
+const initialSeedDates = [
+  { id: "d1", title: "নাহিদা ইয়াছমিন তানিয়া এর জন্মদিন", type: "জন্মদিন", date: "1994-01-30" },
+  { id: "d2", title: "প্রথম বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2012-02-28" }
+];
+
+export default function App() {
+  const videoRef = useRef(null);
+  const [user, setUser] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  const [authStatus, setAuthStatus] = useState('locked'); 
+  const [pinInput, setPinInput] = useState('');
+  const [currentView, setCurrentView] = useState('dashboard');
+  
+  const [actionPinModal, setActionPinModal] = useState({ show: false, action: null, title: '' });
+  const [actionPinInput, setActionPinInput] = useState('');
+  
+  const [passFolderPinModal, setPassFolderPinModal] = useState(false);
+  const [passPinInput, setPassPinInput] = useState('');
+
+  const [pins, setPins] = useState({ main: '7371', action: '6137', password: '8019' });
+
+  const [accounts, setAccounts] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [stories, setStories] = useState([]);
+  const [dates, setDates] = useState([]);
+  const [passwords, setPasswords] = useState([]);
+  const [plans, setPlans] = useState([]);
+
+  const [activeModal, setActiveModal] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [financeSubView, setFinanceSubView] = useState('overview');
+  
+  const [uploadedImage, setUploadedImage] = useState(null);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsInitializing(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
+    const pinRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
+
+    const unsubs = [
+      onSnapshot(pinRef, (snap) => {
+        if (snap.exists()) setPins(snap.data());
+      }, console.error),
+
+      onSnapshot(getCollectionRef('family_members'), (snap) => {
+        setMembers(snap.docs.map(d => ({id: d.id, ...d.data()})));
+      }, console.error),
+      
+      onSnapshot(getCollectionRef('important_dates'), (snap) => {
+          const hasSeeded = localStorage.getItem(`seeded_dates_${user.uid}`);
+          if (snap.empty && !hasSeeded) {
+              setDates(initialSeedDates);
+              localStorage.setItem(`seeded_dates_${user.uid}`, 'true');
+              initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d).catch(console.error));
+          } else {
+              setDates(snap.docs.map(d => ({id: d.id, ...d.data()})));
+          }
+      }, console.error),
+
+      onSnapshot(getCollectionRef('finance_accounts'), (snap) => setAccounts(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+      onSnapshot(getCollectionRef('finance_transactions'), (snap) => setTransactions(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+      onSnapshot(getCollectionRef('stories'), (snap) => setStories(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+      onSnapshot(getCollectionRef('passwords'), (snap) => setPasswords(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
+      onSnapshot(getCollectionRef('future_plans'), (snap) => setPlans(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error)
+    ];
+
+    return () => unsubs.forEach(unsub => unsub());
+  }, [user]);
+
+  const handleMainLogin = () => {
+    if (pinInput === pins.main) {
+      if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(e => console.log("Video error:", e));
+      }
+      
+      setAuthStatus('video');
+      setPinInput('');
+
+      setTimeout(() => {
+        setAuthStatus('unlocked');
+        setCurrentView('dashboard');
+        if (videoRef.current) {
+            videoRef.current.pause();
+        }
+      }, 7000);
+    } else {
+      setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
+    }
+  };
+
+  const verifyActionAndExecute = () => {
+    if (actionPinInput === pins.action) {
+      if (actionPinModal.action) actionPinModal.action();
+      setActionPinModal({ show: false, action: null, title: '' });
+      setActionPinInput('');
+    } else {
+      setActionPinInput('');
+    }
+  };
+
+  const requireSecureAction = (actionFn, titleText) => {
+    setActionPinModal({ show: true, action: actionFn, title: titleText });
+  };
+
+  const openPasswordFolder = () => {
+    if (passPinInput === pins.password) {
+      setPassFolderPinModal(false);
+      setPassPinInput('');
+      setCurrentView('passwords');
+    } else {
+      setPassPinInput('');
+    }
+  };
+
+  const saveData = async (collectionName, data, id = null) => {
+    if (!user) return;
+    const docId = id || Date.now().toString();
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, collectionName, docId);
+    await setDoc(docRef, data);
+    setActiveModal(null);
+  };
+
+  const deleteData = async (collectionName, id) => {
+    if (!user) return;
+    requireSecureAction(async () => {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, collectionName, id));
+    }, 'এই তথ্যটি মুছে ফেলতে চান?');
+  };
+
+  const savePins = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pins');
+    await setDoc(ref, data);
+    setActiveModal(null);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        setUploadedImage(compressedBase64);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const formatMoney = (amount) => `৳ ${Number(amount).toLocaleString('en-IN')}`;
+
+  const calculateFinance = () => {
+    let income = 0;
+    let expense = 0;
+    let totalBalance = 0;
+
+    transactions.forEach(t => {
+      if (t.type === 'income' || t.type === 'borrowed') income += Number(t.amount);
+      if (t.type === 'expense' || t.type === 'lent') expense += Number(t.amount);
+    });
+    accounts.forEach(a => {
+      totalBalance += Number(a.balance);
+    });
+
+    return { income, expense, totalBalance };
+  };
+
+  const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্বামী সাবেক': 3, 'ছেলে': 4, 'মেয়ে': 4, 'মা': 5, 'বাবা': 5, 'ভাই': 6, 'বোন': 6, 'ভাসুর': 7, 'ননদ': 8 };
+  const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
+
+  if (isInitializing) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white app-font">লোড হচ্ছে...</div>;
+
+  const renderDashboardCards = () => (
+    <div className="grid grid-cols-2 gap-4">
+      <div onClick={() => setCurrentView('finance')} className="bg-teal-400/30 border border-teal-200/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-teal-400/40 active:scale-95 transition-all aspect-[4/3]">
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">অর্থ<br/>ব্যবস্থাপনা</h3>
+      </div>
+      
+      <div onClick={() => setCurrentView('family')} className="bg-pink-500/30 border border-pink-300/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-pink-500/40 active:scale-95 transition-all aspect-[4/3]">
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">পরিবারের<br/>সদস্য</h3>
+      </div>
+      
+      <div onClick={() => setCurrentView('stories')} className="bg-indigo-600/40 border border-indigo-400/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-indigo-600/50 active:scale-95 transition-all aspect-[4/3]">
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">স্মরণীয়<br/>গল্প</h3>
+      </div>
+      
+      <div onClick={() => setPassFolderPinModal(true)} className="bg-orange-600/40 border border-orange-400/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-orange-600/50 active:scale-95 transition-all aspect-[4/3]">
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
+      </div>
+      
+      <div onClick={() => setCurrentView('dates')} className="bg-amber-500/40 border border-amber-300/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-500/50 active:scale-95 transition-all aspect-[4/3] relative">
+        {dates.length > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-ping"></span>}
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">স্মরণীয়<br/>তারিখ</h3>
+      </div>
+      
+      <div onClick={() => setCurrentView('plans')} className="bg-emerald-500/30 border border-emerald-300/30 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-500/40 active:scale-95 transition-all aspect-[4/3]">
+        <h3 className="text-xl md:text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
+      </div>
+    </div>
+  );
+
+  const renderFinance = () => {
+    const { income, expense, totalBalance } = calculateFinance();
+    return (
+      <div className="space-y-4 max-w-lg mx-auto">
+        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          <button onClick={() => setFinanceSubView('overview')} className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${financeSubView==='overview'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>ওভারভিউ</button>
+          <button onClick={() => setFinanceSubView('accounts')} className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${financeSubView==='accounts'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>একাউন্টস</button>
+          <button onClick={() => setFinanceSubView('transactions')} className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${financeSubView==='transactions'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>লেনদেন ও ধার</button>
+        </div>
+
+        {financeSubView === 'overview' && (
+          <div className="space-y-4">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 text-center shadow-lg">
+              <p className="text-gray-300 text-sm mb-1">মোট আয় (ধার সহ)</p>
+              <h3 className="text-3xl text-emerald-400">{formatMoney(income)}</h3>
+            </div>
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 text-center shadow-lg">
+              <p className="text-gray-300 text-sm mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
+              <h3 className="text-3xl text-rose-400">{formatMoney(expense)}</h3>
+            </div>
+            <div className="bg-teal-500/20 backdrop-blur-xl border border-teal-400/30 rounded-[2rem] p-6 text-center shadow-lg">
+              <p className="text-teal-100 text-sm mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
+              <h3 className="text-3xl text-white">{formatMoney(totalBalance)}</h3>
+            </div>
+          </div>
+        )}
+
+        {financeSubView === 'accounts' && (
+          <div className="space-y-4">
+            <button onClick={() => { setEditingItem(null); setActiveModal('account'); }} className="w-full py-4 bg-teal-500/20 border border-teal-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-teal-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
+            {accounts.map(acc => (
+              <div key={acc.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex justify-between items-center shadow-lg">
+                <div>
+                  <h4 className="text-white flex items-center gap-2">
+                    <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns text-blue-300' : acc.type === 'bkash' ? 'fa-mobile-screen text-pink-300' : 'fa-wallet text-emerald-300'}`}></i> 
+                    {acc.name}
+                  </h4>
+                  <p className="text-xs text-gray-400 mt-1 capitalize">{acc.type}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg text-white">{formatMoney(acc.balance)}</p>
+                  <div className="mt-2">
+                      <button onClick={() => requireSecureAction(() => { setEditingItem(acc); setActiveModal('account'); }, 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 hover:text-white px-2"><i className="fas fa-pen"></i></button>
+                      <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {financeSubView === 'transactions' && (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 rounded-xl text-sm backdrop-blur-md">আয় যোগ</button>
+              <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-rose-500/20 border border-rose-400/30 text-rose-300 rounded-xl text-sm backdrop-blur-md">ব্যয় যোগ</button>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-amber-500/20 border border-amber-400/30 text-amber-300 rounded-xl text-sm backdrop-blur-md">ধার নিয়েছি</button>
+              <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-purple-500/20 border border-purple-400/30 text-purple-300 rounded-xl text-sm backdrop-blur-md">ধার দিয়েছি</button>
+            </div>
+            
+            <div className="mt-6 space-y-3">
+              {transactions.sort((a,b)=>b.date.localeCompare(a.date)).map(tr => (
+                <div key={tr.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="text-white">{tr.source}</h4>
+                      <p className="text-xs text-gray-400 mt-1">{tr.date} • {accounts.find(a=>a.id===tr.accountId)?.name || 'Unknown'}</p>
+                      {tr.note && <p className="text-sm text-gray-300 mt-2 bg-black/20 p-2 rounded-lg">{tr.note}</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className={`${tr.type==='income'||tr.type==='borrowed' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {tr.type==='income'||tr.type==='borrowed'?'+':'-'}{formatMoney(tr.amount)}
+                      </p>
+                      <span className="inline-block mt-1 text-[10px] px-2 py-0.5 bg-black/30 rounded-full text-gray-300 capitalize">{tr.type}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-4 mt-3 border-t border-white/10 pt-3">
+                    <button onClick={() => requireSecureAction(() => { setEditingItem(tr); setActiveModal('transaction'); }, 'সংশোধন করতে চান?')} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> সংশোধন</button>
+                    <button onClick={() => deleteData('finance_transactions', tr.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMembers = () => (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-4 bg-pink-500/20 border border-pink-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-pink-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন সদস্য</button>
+      {members.length === 0 && (
+        <div className="text-center py-10 bg-white/5 border border-white/10 rounded-2xl">
+          <i className="fas fa-users text-4xl text-white/20 mb-3"></i>
+          <p className="text-gray-400 text-sm">কোনো সদস্য যোগ করা হয়নি</p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        {sortedMembers.map(m => (
+          <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-xl group cursor-pointer border border-white/20 bg-black/40 backdrop-blur-md">
+            {m.imageUrl ? (
+              <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"/>
+            ) : (
+              <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center">
+                 <i className="fas fa-user text-5xl text-white/20 mb-2"></i>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+            
+            <div className="absolute bottom-0 left-0 w-full p-4">
+              <p className="text-pink-300 text-[10px] mb-1 tracking-wider uppercase bg-black/50 inline-block px-2 py-0.5 rounded-full">{m.relation}</p>
+              <h3 className="text-lg text-white leading-tight drop-shadow-md">{m.name}</h3>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); deleteData('family_members', m.id); }} className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white/80 hover:text-rose-400 transition-colors">
+                <i className="fas fa-trash text-xs"></i>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderStories = () => (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <button onClick={() => { setEditingItem(null); setActiveModal('story'); }} className="w-full py-4 bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-indigo-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
+      {stories.map(s => (
+        <div key={s.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 shadow-lg">
+          <h4 className="text-xl text-white mb-3">{s.title}</h4>
+          <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{s.content}</p>
+          <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
+            <button onClick={() => { setEditingItem(s); setActiveModal('story'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+            <button onClick={() => deleteData('stories', s.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderDates = () => (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-4 bg-amber-500/20 border border-amber-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-amber-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
+      {dates.map(d => (
+        <div key={d.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
+          <div className="w-14 h-14 bg-black/20 border border-white/10 rounded-2xl flex flex-col items-center justify-center flex-shrink-0">
+            <span className="text-[10px] text-amber-300 uppercase tracking-widest">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
+            <span className="text-xl text-white leading-none mt-1">{new Date(d.date).getDate()}</span>
+          </div>
+          <div className="flex-1">
+            <h4 className="text-white">{d.title}</h4>
+            <p className="text-xs text-gray-400 mt-1">{d.type}</p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <button onClick={() => { setEditingItem(d); setActiveModal('date'); }} className="text-gray-300 hover:text-white"><i className="fas fa-pen"></i></button>
+            <button onClick={() => deleteData('important_dates', d.id)} className="text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i></button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderPasswords = () => (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <div className="bg-rose-500/20 backdrop-blur-md border border-rose-400/30 p-4 rounded-xl flex gap-3 items-center text-rose-200 text-sm mb-4 shadow-lg">
+        <i className="fas fa-shield-halved text-xl"></i> এটি সম্পূর্ণ সিকিউর ফোল্ডার
+      </div>
+      <button onClick={() => { setEditingItem(null); setActiveModal('password'); }} className="w-full py-4 bg-orange-500/20 border border-orange-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 text-white hover:bg-orange-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
+      {passwords.map(p => (
+        <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-5 shadow-lg">
+          <h4 className="text-white text-lg mb-2 flex items-center gap-2"><i className="fas fa-globe text-gray-400 text-sm"></i> {p.platform}</h4>
+          <p className="text-sm text-gray-300 mb-2"><span className="text-gray-500">ID:</span> {p.userId}</p>
+          <p className="text-sm text-gray-300 mb-4"><span className="text-gray-500">Pass:</span> <span className="bg-black/30 px-3 py-1 rounded-lg tracking-widest font-mono ml-1">{p.password}</span></p>
+          <div className="flex gap-4 border-t border-white/10 pt-3">
+            <button onClick={() => { setEditingItem(p); setActiveModal('password'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+            <button onClick={() => deleteData('passwords', p.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderPlans = () => (
+    <div className="space-y-4 max-w-lg mx-auto">
+      <button onClick={() => { setEditingItem(null); setActiveModal('plan'); }} className="w-full py-4 bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-emerald-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
+      {plans.map(p => (
+        <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 border-l-4 border-l-emerald-400 rounded-[2rem] p-6 shadow-lg">
+          <h4 className="text-xl text-white mb-2">{p.title}</h4>
+          <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{p.details}</p>
+          {p.budget && <p className="mt-4 text-emerald-200 bg-emerald-500/20 inline-block px-4 py-2 rounded-xl text-sm border border-emerald-500/20">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
+          <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
+            <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
+            <button onClick={() => deleteData('future_plans', p.id)} className="text-xs text-emerald-400 hover:text-emerald-300"><i className="fas fa-check"></i> বাস্তবায়ন / ডিলেট</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen relative text-white bg-[#0f172a] app-font">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&family=Poppins:wght@400;600&display=swap');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+        
+        .app-font {
+          font-family: 'Noto Sans Bengali', 'Poppins', sans-serif;
+        }
+        
         .glass-input {
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            font-family: 'Noto Sans Bengali', 'Poppins', sans-serif;
         }
-        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); font-family: sans-serif; letter-spacing: normal; font-size: 14px; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); font-family: 'Noto Sans Bengali', 'Poppins', sans-serif; }
         .glass-input:focus { border-color: rgba(255, 255, 255, 0.4); outline: none; }
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
-    </style>
-</head>
-<body class="text-white">
-    <div id="root"></div>
+        .custom-scrollbar::-webkit-scrollbar { width: 0px; height: 0px; background: transparent; }
+      `}</style>
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+      <div className="fixed inset-0 z-[-1]">
+          <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1534796636912-36528502c5c0?q=80&w=2000&auto=format&fit=crop')" }}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+      </div>
 
-        const { useState, useEffect, useRef } = React;
+      {authStatus === 'video' && (
+        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-1000">
+            <video
+                ref={videoRef}
+                src="public/splash_video.mp4"
+                playsInline
+                autoPlay
+                className="w-full h-full object-cover opacity-100"
+            />
+        </div>
+      )}
 
-        const firebaseConfig = {
-          apiKey: "AIzaSyCf_zIDQGrjC5OMo-Px5s5vcmMdZlVMbkM",
-          authDomain: "taniya-world.firebaseapp.com",
-          projectId: "taniya-world",
-          storageBucket: "taniya-world.firebasestorage.app",
-          messagingSenderId: "840512527967",
-          appId: "1:840512527967:web:e4d88d83f1686b838245ea",
-          measurementId: "G-DKJKK3E529"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = "taniya-locker-app";
-
-        const initialSeedMembers = [
-          { id: "seed1", name: "নাহিদা ইয়াছমিন তানিয়া", relation: "আমি", mobile: "", note: "জন্ম: ০১/৩০/১৯৯৪\nবিবাহ: ০২/২৮/২০১২, ০৬/২৭/২০১৪\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী", imageUrl: "" },
-          { id: "seed2", name: "মোঃ মহসিন", relation: "স্বামী", mobile: "", note: "জন্ম: ০১/০১/১৯৯২\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: আমেরিকান প্রবাসী", imageUrl: "" },
-          { id: "seed3", name: "মোঃ জহিরুল ইসলাম", relation: "স্বামী সাবেক", mobile: "", note: "জন্ম: ০১/০১/১৯৮৫\nমৃত্যু: ২৭/১২/২০১৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী", imageUrl: "" },
-          { id: "seed4", name: "নাজমা আক্তার", relation: "মা", mobile: "", note: "জন্ম: ০৫/২০/১৯৭৬\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিণী", imageUrl: "" },
-          { id: "seed5", name: "ফারুক হোসেন", relation: "বাবা", mobile: "", note: "জন্ম: ০৯/১০/১৯৬৭\nমৃত্যু: ১১/২৫/২০২৩\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী", imageUrl: "" },
-          { id: "seed6", name: "খন্দকার মাহির তাজওয়ার", relation: "ছেলে", mobile: "", note: "জন্ম: ০৫/১৪/২০১৮\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী", imageUrl: "" },
-          { id: "seed7", name: "তনিমা ইসলাম জুয়েনা", relation: "মেয়ে", mobile: "", note: "জন্ম: ০৬/২৮/২০১৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী", imageUrl: "" },
-          { id: "seed8", name: "মুসকান খন্দকার আলিজা", relation: "মেয়ে", mobile: "", note: "জন্ম: ১২/১৬/২০২১\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রামপুর, থানা- বেগমগঞ্জ , জেলা - নোয়াখালী", imageUrl: "" },
-          { id: "seed9", name: "মেহেদী হাসান মন্জু", relation: "ভাই", mobile: "", note: "জন্ম: ১২/১০/২০০১\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী", imageUrl: "" },
-          { id: "seed10", name: "ফরিদা ইয়াছমিন রিপন", relation: "বোন", mobile: "", note: "জন্ম: ০৮/০৭/১৯৮৯\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী", imageUrl: "" },
-          { id: "seed11", name: "আন্জুমান আক্তার প্রিয়া", relation: "বোন", mobile: "", note: "জন্ম: ১২/১৪/১৯৯৮\nঠিকানা: খন্দকার বাড়ি, দরাপপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: গৃহিনী", imageUrl: "" },
-          { id: "seed12", name: "আলমগীর হোসাইন", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৭৬\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী", imageUrl: "" },
-          { id: "seed13", name: "মোঃ নুরুল ইসলাম", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৩\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: সৌদি প্রবাসী", imageUrl: "" },
-          { id: "seed14", name: "মোঃ মোখলেছুর রহমান", relation: "ভাসুর", mobile: "", note: "জন্ম: ০১/০১/১৯৮৭\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী", imageUrl: "" },
-          { id: "seed15", name: "জান্নাতুল ফেরদৌস", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৭৮\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী", imageUrl: "" },
-          { id: "seed16", name: "রাবেয়া বেগম রতনা", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮০\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী", imageUrl: "" },
-          { id: "seed17", name: "ফাতেমা বেগম গোলাপ", relation: "ননদ", mobile: "", note: "জন্ম: ০১/০১/১৯৮২\nঠিকানা: মুসা মিয়া পন্ডিত বাড়ি, রঘুরামপুর, বেগমগঞ্জ, নোয়াখালী\nপেশা: ব্যবসায়ী", imageUrl: "" }
-        ];
-
-        const initialSeedDates = [
-            { id: "d1", title: "নাহিদা ইয়াছমিন তানিয়া এর জন্মদিন", type: "জন্মদিন", date: "1994-01-30" },
-            { id: "d2", title: "প্রথম বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2012-02-28" },
-            { id: "d3", title: "দ্বিতীয় বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2014-06-27" },
-            { id: "d4", title: "মোঃ মহসিন এর জন্মদিন", type: "জন্মদিন", date: "1992-01-01" },
-            { id: "d5", title: "মোঃ জহিরুল ইসলাম এর জন্মদিন", type: "জন্মদিন", date: "1985-01-01" },
-            { id: "d6", title: "মোঃ জহিরুল ইসলাম এর মৃত্যু বার্ষিকী", type: "মৃত্যু বার্ষিকী", date: "2013-12-27" },
-            { id: "d7", title: "মা নাজমা আক্তার এর জন্মদিন", type: "জন্মদিন", date: "1976-05-20" },
-            { id: "d8", title: "বাবা ফারুক হোসেন এর জন্মদিন", type: "জন্মদিন", date: "1967-09-10" },
-            { id: "d9", title: "বাবা ফারুক হোসেন এর মৃত্যু বার্ষিকী", type: "মৃত্যু বার্ষিকী", date: "2023-11-25" },
-            { id: "d10", title: "ছেলে মাহির তাজওয়ার এর জন্মদিন", type: "জন্মদিন", date: "2018-05-14" },
-            { id: "d11", title: "মেয়ে তনিমা ইসলাম জুয়েনা এর জন্মদিন", type: "জন্মদিন", date: "2013-06-28" },
-            { id: "d12", title: "মেয়ে মুসকান খন্দকার আলিজা এর জন্মদিন", type: "জন্মদিন", date: "2021-12-16" },
-            { id: "d13", title: "ভাই মেহেদী হাসান মন্জু এর জন্মদিন", type: "জন্মদিন", date: "2001-12-10" },
-            { id: "d14", title: "বোন ফরিদা ইয়াছমিন রিপন এর জন্মদিন", type: "জন্মদিন", date: "1989-08-07" },
-            { id: "d15", title: "বোন আন্জুমান আক্তার প্রিয়া এর জন্মদিন", type: "জন্মদিন", date: "1998-12-14" },
-            { id: "d16", title: "ভাসুর আলমগীর হোসাইন এর জন্মদিন", type: "জন্মদিন", date: "1976-01-01" },
-            { id: "d17", title: "ভাসুর মোঃ নুরুল ইসলাম এর জন্মদিন", type: "জন্মদিন", date: "1983-01-01" },
-            { id: "d18", title: "ভাসুর মোঃ মোখলেছুর রহমান এর জন্মদিন", type: "জন্মদিন", date: "1987-01-01" },
-            { id: "d19", title: "ননদ জান্নাতুল ফেরদৌস এর জন্মদিন", type: "জন্মদিন", date: "1978-01-01" },
-            { id: "d20", title: "ননদ রাবেয়া বেগম রতনা এর জন্মদিন", type: "জন্মদিন", date: "1980-01-01" },
-            { id: "d21", title: "ননদ ফাতেমা বেগম গোলাপ এর জন্মদিন", type: "জন্মদিন", date: "1982-01-01" }
-        ];
-
-        function App() {
-          const videoRef = useRef(null);
-          
-          const [user, setUser] = useState(null);
-          const [isInitializing, setIsInitializing] = useState(true);
-
-          const [authStatus, setAuthStatus] = useState('locked'); 
-          const [pinInput, setPinInput] = useState('');
-          const [currentView, setCurrentView] = useState('dashboard');
-          
-          const [actionPinModal, setActionPinModal] = useState({ show: false, action: null, title: '' });
-          const [actionPinInput, setActionPinInput] = useState('');
-          
-          const [passFolderPinModal, setPassFolderPinModal] = useState(false);
-          const [passPinInput, setPassPinInput] = useState('');
-
-          const [accounts, setAccounts] = useState([]);
-          const [transactions, setTransactions] = useState([]);
-          const [members, setMembers] = useState([]);
-          const [stories, setStories] = useState([]);
-          const [dates, setDates] = useState([]);
-          const [passwords, setPasswords] = useState([]);
-          const [plans, setPlans] = useState([]);
-
-          const [activeModal, setActiveModal] = useState(null);
-          const [editingItem, setEditingItem] = useState(null);
-          const [financeSubView, setFinanceSubView] = useState('overview');
-          
-          const [uploadedImage, setUploadedImage] = useState(null);
-
-          useEffect(() => {
-            const initAuth = async () => {
-              try {
-                await signInAnonymously(auth);
-              } catch (error) {
-                console.error("Auth error:", error);
-              }
-            };
-            initAuth();
+      {authStatus === 'locked' && (
+        <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+          <div className="w-full max-w-sm flex flex-col items-center bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[2.5rem] shadow-2xl">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
+              <i className="fas fa-lock text-white text-3xl"></i>
+            </div>
+            <h1 className="text-2xl text-white mb-2 tracking-widest drop-shadow-lg text-center">TANIYA'S WORLD <span className="text-yellow-400">✨</span></h1>
+            <p className="text-gray-200 mb-8 text-center text-sm">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
             
-            const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-              setUser(currentUser);
-              setIsInitializing(false);
-            });
-            return () => unsubscribe();
-          }, []);
+            <div className="w-full relative mb-6">
+              <input
+                type="password"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleMainLogin()}
+                className="glass-input w-full rounded-2xl py-4 text-center text-3xl tracking-[0.4em] shadow-inner"
+              />
+            </div>
+            <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 hover:opacity-90 text-white text-lg shadow-xl active:scale-95 transition-all">
+              Unlock
+            </button>
+          </div>
+        </div>
+      )}
 
-          // রিয়েল-টাইম ডেটা এবং ইনস্ট্যান্ট লোড সিস্টেম
-          useEffect(() => {
-            if (!user) return;
+      {authStatus === 'unlocked' && (
+        <div className="min-h-screen flex flex-col relative z-10">
+          <header className="px-6 pt-12 pb-6 sticky top-0 z-30 bg-black/40 backdrop-blur-2xl border-b border-white/10">
+            <div className="flex justify-between items-center max-w-lg mx-auto w-full">
+              <div>
+                <h1 className="text-xl md:text-3xl text-white tracking-widest drop-shadow-md">TANIYA'S WORLD</h1>
+                {currentView !== 'dashboard' && (
+                  <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 text-xs text-white mt-3 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full hover:bg-white/20 transition-all"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setActiveModal('pinSettings')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-indigo-500 hover:border-indigo-500 hover:text-white transition-all"><i className="fas fa-gear"></i></button>
+                <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
+              </div>
+            </div>
+          </header>
 
-            const getCollectionRef = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
+          <main className="px-6 pt-8 pb-12 flex-1 max-w-lg mx-auto w-full">
+            {currentView === 'dashboard' && renderDashboardCards()}
+            {currentView === 'finance' && renderFinance()}
+            {currentView === 'family' && renderMembers()}
+            {currentView === 'stories' && renderStories()}
+            {currentView === 'dates' && renderDates()}
+            {currentView === 'passwords' && renderPasswords()}
+            {currentView === 'plans' && renderPlans()}
+          </main>
+        </div>
+      )}
 
-            const unsubs = [
-              onSnapshot(getCollectionRef('family_members'), (snap) => {
-                  const hasSeeded = localStorage.getItem(`seeded_members_${user.uid}`);
-                  if (snap.empty && !hasSeeded) {
-                      setMembers(initialSeedMembers); // সাথে সাথে স্ক্রিনে দেখাবে
-                      localStorage.setItem(`seeded_members_${user.uid}`, 'true');
-                      initialSeedMembers.forEach(m => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'family_members', m.id), m).catch(console.error));
-                  } else {
-                      setMembers(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                  }
-              }, console.error),
+      {actionPinModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
+            <i className="fas fa-shield-cat text-rose-400 text-5xl mx-auto mb-4"></i>
+            <h3 className="text-white mb-6 tracking-wide">{actionPinModal.title}</h3>
+            <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && verifyActionAndExecute()} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center tracking-[0.5em] text-xl mb-6 shadow-inner"/>
+            <div className="flex gap-3">
+              <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-gray-300 transition-all">বাতিল</button>
+              <button onClick={verifyActionAndExecute} className="flex-1 py-3 bg-rose-500/80 hover:bg-rose-500 border border-rose-500/50 rounded-xl text-white transition-all shadow-lg">নিশ্চিত করুন</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passFolderPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
+            <i className="fas fa-user-secret text-orange-400 text-5xl mx-auto mb-4"></i>
+            <h3 className="text-white mb-2 tracking-wide">সিকিউর ফোল্ডার</h3>
+            <p className="text-xs text-gray-400 mb-6">প্রবেশ করতে পিন প্রয়োজন</p>
+            <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && openPasswordFolder()} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center tracking-[0.5em] text-xl mb-6 shadow-inner"/>
+            <div className="flex gap-3">
+              <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-gray-300 transition-all">বাতিল</button>
+              <button onClick={openPasswordFolder} className="flex-1 py-3 bg-orange-500/80 hover:bg-orange-500 border border-orange-500/50 rounded-xl text-white transition-all shadow-lg">প্রবেশ করুন</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'pinSettings' && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <form onSubmit={savePins} className="bg-slate-900/95 backdrop-blur-2xl border border-white/20 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-5">
+            <h3 className="text-xl text-white mb-6 text-center">PIN পরিবর্তন</h3>
+            
+            <div>
+              <label className="block text-sm text-gray-300 mb-2 ml-1">Main PIN (লক স্ক্রিন)</label>
+              <input name="main" defaultValue={pins.main} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-300 mb-2 ml-1">Action PIN (তথ্য মোছার জন্য)</label>
+              <input name="action" defaultValue={pins.action} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-300 mb-2 ml-1">Password PIN (সিকিউর ফোল্ডার)</label>
+              <input name="password" defaultValue={pins.password} className="glass-input w-full rounded-xl p-4 shadow-inner"/>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all">বাতিল</button>
+              <button type="submit" className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all">সংরক্ষণ করুন</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {activeModal && activeModal !== 'pinSettings' && (
+        <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/70 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/20 w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl custom-scrollbar">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl text-white tracking-wide">তথ্য আপডেট</h3>
+              <button onClick={() => setActiveModal(null)} className="w-10 h-10 bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 rounded-full hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all"><i className="fas fa-times"></i></button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.target);
+              const data = Object.fromEntries(fd.entries());
               
-              onSnapshot(getCollectionRef('important_dates'), (snap) => {
-                  const hasSeeded = localStorage.getItem(`seeded_dates_${user.uid}`);
-                  if (snap.empty && !hasSeeded) {
-                      setDates(initialSeedDates); // সাথে সাথে স্ক্রিনে দেখাবে
-                      localStorage.setItem(`seeded_dates_${user.uid}`, 'true');
-                      initialSeedDates.forEach(d => setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'important_dates', d.id), d).catch(console.error));
-                  } else {
-                      setDates(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                  }
-              }, console.error),
-
-              onSnapshot(getCollectionRef('finance_accounts'), (snap) => setAccounts(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('finance_transactions'), (snap) => setTransactions(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('stories'), (snap) => setStories(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('passwords'), (snap) => setPasswords(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error),
-              onSnapshot(getCollectionRef('future_plans'), (snap) => setPlans(snap.docs.map(d => ({id: d.id, ...d.data()}))), console.error)
-            ];
-
-            return () => unsubs.forEach(unsub => unsub());
-          }, [user]);
-
-          const handleMainLogin = () => {
-            if (pinInput === '7371') {
-              if (videoRef.current) {
-                  videoRef.current.currentTime = 0;
-                  videoRef.current.play().catch(e => console.log("Video error:", e));
+              let collectionName = '';
+              if (activeModal === 'account') collectionName = 'finance_accounts';
+              if (activeModal === 'transaction') collectionName = 'finance_transactions';
+              if (activeModal === 'member') {
+                 collectionName = 'family_members';
+                 data.imageUrl = uploadedImage || editingItem?.imageUrl || '';
               }
-              
-              setAuthStatus('video');
-              setPinInput('');
+              if (activeModal === 'story') collectionName = 'stories';
+              if (activeModal === 'date') collectionName = 'important_dates';
+              if (activeModal === 'password') collectionName = 'passwords';
+              if (activeModal === 'plan') collectionName = 'future_plans';
 
-              setTimeout(() => {
-                setAuthStatus('unlocked');
-                setCurrentView('dashboard');
-                if (videoRef.current) {
-                    videoRef.current.pause();
+              if (activeModal === 'transaction') {
+                const accId = data.accountId;
+                const acc = accounts.find(a => a.id === accId);
+                if(acc) {
+                  const amount = Number(data.amount);
+                  let newBalance = Number(acc.balance);
+                  if (data.type === 'income' || data.type === 'borrowed') newBalance += amount;
+                  if (data.type === 'expense' || data.type === 'lent') newBalance -= amount;
+                  saveData('finance_accounts', {...acc, balance: newBalance}, acc.id);
                 }
-              }, 7000);
-            } else {
-              setActionPinModal({ show: true, action: null, title: 'ভুল পিন দিয়েছেন' });
-            }
-          };
+              }
 
-          const verifyActionAndExecute = () => {
-            if (actionPinInput === '6137') {
-              if (actionPinModal.action) actionPinModal.action();
-              setActionPinModal({ show: false, action: null, title: '' });
-              setActionPinInput('');
-            } else {
-              setActionPinInput('');
-            }
-          };
-
-          const requireSecureAction = (actionFn, titleText) => {
-            setActionPinModal({ show: true, action: actionFn, title: titleText });
-          };
-
-          const openPasswordFolder = () => {
-            if (passPinInput === '8019') {
-              setPassFolderPinModal(false);
-              setPassPinInput('');
-              setCurrentView('passwords');
-            } else {
-              setPassPinInput('');
-            }
-          };
-
-          const saveData = async (collectionName, data, id = null) => {
-            if (!user) return;
-            const docId = id || Date.now().toString();
-            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, collectionName, docId);
-            await setDoc(docRef, data);
-            setActiveModal(null);
-          };
-
-          const deleteData = async (collectionName, id) => {
-            if (!user) return;
-            requireSecureAction(async () => {
-              await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, collectionName, id));
-            }, 'এই তথ্যটি মুছে ফেলতে চান?');
-          };
-
-          const handleImageChange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const img = new Image();
-              img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 400;
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                setUploadedImage(compressedBase64);
-              };
-              img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-          };
-
-          const formatMoney = (amount) => `৳ ${Number(amount).toLocaleString('en-IN')}`;
-
-          const calculateFinance = () => {
-            let income = 0;
-            let expense = 0;
-            let totalBalance = 0;
-
-            transactions.forEach(t => {
-              if (t.type === 'income' || t.type === 'borrowed') income += Number(t.amount);
-              if (t.type === 'expense' || t.type === 'lent') expense += Number(t.amount);
-            });
-
-            accounts.forEach(a => {
-              totalBalance += Number(a.balance);
-            });
-
-            return { income, expense, totalBalance };
-          };
-
-          const relPriority = { 'আমি': 1, 'স্বামী': 2, 'স্বামী সাবেক': 3, 'ছেলে': 4, 'মেয়ে': 4, 'মা': 5, 'বাবা': 5, 'ভাই': 6, 'বোন': 6, 'ভাসুর': 7, 'ননদ': 8 };
-          const sortedMembers = [...members].sort((a, b) => (relPriority[a.relation] || 99) - (relPriority[b.relation] || 99));
-
-          if (isInitializing) return <div className="min-h-screen bg-black flex items-center justify-center text-white">লোড হচ্ছে...</div>;
-
-          const renderDashboardCards = () => (
-            <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setCurrentView('finance')} className="bg-teal-400/50 border border-teal-200/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-teal-400/60 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">অর্থ<br/>ব্যবস্থাপনা</h3>
-              </div>
+              if (editingItem) {
+                requireSecureAction(() => saveData(collectionName, {...editingItem, ...data}, editingItem.id), 'তথ্য এডিট করতে চান?');
+              } else {
+                saveData(collectionName, data);
+              }
+            }} className="space-y-4">
               
-              <div onClick={() => setCurrentView('family')} className="bg-pink-500/50 border border-pink-300/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-pink-500/60 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">পরিবারের<br/>সদস্য</h3>
-              </div>
-              
-              <div onClick={() => setCurrentView('stories')} className="bg-indigo-600/60 border border-indigo-400/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-indigo-600/70 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">স্মরণীয়<br/>গল্প</h3>
-              </div>
-              
-              <div onClick={() => setPassFolderPinModal(true)} className="bg-orange-600/60 border border-orange-400/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-orange-600/70 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">প্রয়োজনীয়<br/>পাসওয়ার্ড</h3>
-              </div>
-              
-              <div onClick={() => setCurrentView('dates')} className="bg-amber-500/60 border border-amber-300/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-500/70 active:scale-95 transition-all aspect-[4/3] relative">
-                {dates.length > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-ping"></span>}
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">স্মরণীয়<br/>তারিখ</h3>
-              </div>
-              
-              <div onClick={() => setCurrentView('plans')} className="bg-emerald-500/50 border border-emerald-300/40 backdrop-blur-xl shadow-lg rounded-[2rem] p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-500/60 active:scale-95 transition-all aspect-[4/3]">
-                <h3 className="font-bold text-2xl text-white text-center tracking-wide leading-snug drop-shadow-md">ভবিষ্যৎ<br/>পরিকল্পনা</h3>
-              </div>
-            </div>
-          );
-
-          const renderFinance = () => {
-            const { income, expense, totalBalance } = calculateFinance();
-            return (
-              <div className="space-y-4">
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  <button onClick={() => setFinanceSubView('overview')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='overview'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>ওভারভিউ</button>
-                  <button onClick={() => setFinanceSubView('accounts')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='accounts'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>একাউন্টস</button>
-                  <button onClick={() => setFinanceSubView('transactions')} className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-all ${financeSubView==='transactions'?'bg-teal-500 text-white shadow-lg':'bg-white/10 border border-white/20 text-white'}`}>লেনদেন ও ধার</button>
-                </div>
-
-                {financeSubView === 'overview' && (
-                  <div className="space-y-4">
-                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 text-center shadow-lg">
-                      <p className="text-gray-300 text-sm font-medium mb-1">মোট আয় (ধার সহ)</p>
-                      <h3 className="text-3xl font-extrabold text-emerald-400">{formatMoney(income)}</h3>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 text-center shadow-lg">
-                      <p className="text-gray-300 text-sm font-medium mb-1">মোট ব্যয় (কাউকে ধার দেওয়া সহ)</p>
-                      <h3 className="text-3xl font-extrabold text-rose-400">{formatMoney(expense)}</h3>
-                    </div>
-                    <div className="bg-teal-500/20 backdrop-blur-xl border border-teal-400/30 rounded-[2rem] p-6 text-center shadow-lg">
-                      <p className="text-teal-100 text-sm font-medium mb-1">বর্তমান ব্যালেন্স (সব একাউন্ট মিলিয়ে)</p>
-                      <h3 className="text-3xl font-extrabold text-white">{formatMoney(totalBalance)}</h3>
-                    </div>
-                  </div>
-                )}
-
-                {financeSubView === 'accounts' && (
-                  <div className="space-y-4">
-                    <button onClick={() => { setEditingItem(null); setActiveModal('account'); }} className="w-full py-4 bg-teal-500/20 border border-teal-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-teal-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
-                    {accounts.map(acc => (
-                      <div key={acc.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex justify-between items-center shadow-lg">
-                        <div>
-                          <h4 className="font-bold text-white flex items-center gap-2">
-                            <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns text-blue-300' : acc.type === 'bkash' ? 'fa-mobile-screen text-pink-300' : 'fa-wallet text-emerald-300'}`}></i> 
-                            {acc.name}
-                          </h4>
-                          <p className="text-xs text-gray-400 mt-1 capitalize">{acc.type}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg text-white">{formatMoney(acc.balance)}</p>
-                          <div className="mt-2">
-                              <button onClick={() => requireSecureAction(() => { setEditingItem(acc); setActiveModal('account'); }, 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 font-medium hover:text-white px-2"><i className="fas fa-pen"></i></button>
-                              <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 font-medium hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {financeSubView === 'transactions' && (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'income'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 rounded-xl font-bold text-sm backdrop-blur-md">আয় যোগ</button>
-                      <button onClick={() => { setEditingItem({type:'expense'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-rose-500/20 border border-rose-400/30 text-rose-300 rounded-xl font-bold text-sm backdrop-blur-md">ব্যয় যোগ</button>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => { setEditingItem({type:'borrowed'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-amber-500/20 border border-amber-400/30 text-amber-300 rounded-xl font-bold text-sm backdrop-blur-md">ধার নিয়েছি</button>
-                      <button onClick={() => { setEditingItem({type:'lent'}); setActiveModal('transaction'); }} className="flex-1 py-3 bg-purple-500/20 border border-purple-400/30 text-purple-300 rounded-xl font-bold text-sm backdrop-blur-md">ধার দিয়েছি / বকেয়া</button>
-                    </div>
-                    
-                    <div className="mt-6 space-y-3">
-                      {transactions.sort((a,b)=>b.date.localeCompare(a.date)).map(tr => (
-                        <div key={tr.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="font-bold text-white">{tr.source}</h4>
-                              <p className="text-xs text-gray-400 mt-1">{tr.date} • {accounts.find(a=>a.id===tr.accountId)?.name || 'Unknown'}</p>
-                              {tr.note && <p className="text-sm text-gray-300 mt-2 bg-black/20 p-2 rounded-lg">{tr.note}</p>}
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-bold ${tr.type==='income'||tr.type==='borrowed' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {tr.type==='income'||tr.type==='borrowed'?'+':'-'}{formatMoney(tr.amount)}
-                              </p>
-                              <span className="inline-block mt-1 text-[10px] px-2 py-0.5 bg-black/30 rounded-full text-gray-300 capitalize">{tr.type}</span>
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-4 mt-3 border-t border-white/10 pt-3">
-                            <button onClick={() => requireSecureAction(() => { setEditingItem(tr); setActiveModal('transaction'); }, 'সংশোধন করতে চান?')} className="text-xs text-gray-300 hover:text-white"><i className="fas fa-pen"></i> সংশোধন</button>
-                            <button onClick={() => deleteData('finance_transactions', tr.id)} className="text-xs text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          };
-
-          const renderMembers = () => (
-            <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setUploadedImage(null); setActiveModal('member'); }} className="w-full py-4 bg-pink-500/20 border border-pink-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 text-white hover:bg-pink-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন সদস্য</button>
-              <div className="grid grid-cols-2 gap-4">
-                {sortedMembers.map(m => (
-                  <div key={m.id} onClick={() => { setEditingItem(m); setUploadedImage(null); setActiveModal('member'); }} className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-xl group cursor-pointer border border-white/20 bg-black/40 backdrop-blur-md">
-                    {m.imageUrl ? (
-                      <img src={m.imageUrl} alt={m.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"/>
-                    ) : (
-                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center">
-                         <i className="fas fa-user text-5xl text-white/20 mb-2"></i>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-                    
-                    <div className="absolute bottom-0 left-0 w-full p-4">
-                      <p className="text-pink-300 text-[10px] font-bold mb-1 tracking-wider uppercase bg-black/50 inline-block px-2 py-0.5 rounded-full">{m.relation}</p>
-                      <h3 className="text-lg font-bold text-white leading-tight drop-shadow-md">{m.name}</h3>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteData('family_members', m.id); }} className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white/80 hover:text-rose-400 transition-colors">
-                        <i className="fas fa-trash text-xs"></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-
-          const renderStories = () => (
-            <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('story'); }} className="w-full py-4 bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-indigo-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন গল্প লিখুন</button>
-              {stories.map(s => (
-                <div key={s.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 shadow-lg">
-                  <h4 className="font-bold text-xl text-white mb-3">{s.title}</h4>
-                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{s.content}</p>
-                  <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
-                    <button onClick={() => { setEditingItem(s); setActiveModal('story'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
-                    <button onClick={() => deleteData('stories', s.id)} className="text-xs font-medium text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-
-          const renderDates = () => (
-            <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('date'); }} className="w-full py-4 bg-amber-500/20 border border-amber-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-amber-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন তারিখ যোগ করুন</button>
-              {dates.map(d => (
-                <div key={d.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
-                  <div className="w-14 h-14 bg-black/20 border border-white/10 rounded-2xl flex flex-col items-center justify-center font-bold flex-shrink-0">
-                    <span className="text-[10px] text-amber-300 uppercase tracking-widest">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-xl text-white leading-none mt-1">{new Date(d.date).getDate()}</span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-white">{d.title}</h4>
-                    <p className="text-xs text-gray-400 mt-1">{d.type}</p>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <button onClick={() => { setEditingItem(d); setActiveModal('date'); }} className="text-gray-300 hover:text-white"><i className="fas fa-pen"></i></button>
-                    <button onClick={() => deleteData('important_dates', d.id)} className="text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-
-          const renderPasswords = () => (
-            <div className="space-y-4">
-              <div className="bg-rose-500/20 backdrop-blur-md border border-rose-400/30 p-4 rounded-xl flex gap-3 items-center text-rose-200 text-sm font-medium mb-4 shadow-lg">
-                <i className="fas fa-shield-halved text-xl"></i> এটি সম্পূর্ণ সিকিউর ফোল্ডার
-              </div>
-              <button onClick={() => { setEditingItem(null); setActiveModal('password'); }} className="w-full py-4 bg-orange-500/20 border border-orange-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 text-white hover:bg-orange-500/40 transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পাসওয়ার্ড</button>
-              {passwords.map(p => (
-                <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-5 shadow-lg">
-                  <h4 className="font-bold text-white text-lg mb-2 flex items-center gap-2"><i className="fas fa-globe text-gray-400 text-sm"></i> {p.platform}</h4>
-                  <p className="text-sm text-gray-300 mb-2"><span className="text-gray-500">ID:</span> {p.userId}</p>
-                  <p className="text-sm text-gray-300 mb-4"><span className="text-gray-500">Pass:</span> <span className="bg-black/30 px-3 py-1 rounded-lg tracking-widest font-mono ml-1">{p.password}</span></p>
-                  <div className="flex gap-4 border-t border-white/10 pt-3">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('password'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
-                    <button onClick={() => deleteData('passwords', p.id)} className="text-xs font-medium text-rose-400 hover:text-rose-300"><i className="fas fa-trash"></i> ডিলেট</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-
-          const renderPlans = () => (
-            <div className="space-y-4">
-              <button onClick={() => { setEditingItem(null); setActiveModal('plan'); }} className="w-full py-4 bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-emerald-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন পরিকল্পনা</button>
-              {plans.map(p => (
-                <div key={p.id} className="bg-white/10 backdrop-blur-xl border border-white/20 border-l-4 border-l-emerald-400 rounded-[2rem] p-6 shadow-lg">
-                  <h4 className="font-bold text-xl text-white mb-2">{p.title}</h4>
-                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{p.details}</p>
-                  {p.budget && <p className="mt-4 font-bold text-emerald-200 bg-emerald-500/20 inline-block px-4 py-2 rounded-xl text-sm border border-emerald-500/20">সম্ভাব্য খরচ: {formatMoney(p.budget)}</p>}
-                  <div className="mt-5 flex gap-4 border-t border-white/10 pt-4">
-                    <button onClick={() => { setEditingItem(p); setActiveModal('plan'); }} className="text-xs font-medium text-gray-300 hover:text-white"><i className="fas fa-pen"></i> এডিট</button>
-                    <button onClick={() => deleteData('future_plans', p.id)} className="text-xs font-medium text-emerald-400 hover:text-emerald-300"><i className="fas fa-check"></i> বাস্তবায়ন / ডিলেট</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-
-          return (
-            <div className="min-h-screen relative font-sans text-white">
-              <div className="fixed inset-0 z-[-1]">
-                  <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('public/mahsin.jpeg')" }}></div>
-                  <div className="absolute inset-0 bg-black/50 backdrop-blur-xl"></div>
-              </div>
-
-              {authStatus === 'video' && (
-                <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden">
-                    <video 
-                        ref={videoRef} 
-                        src="public/splash_video.mp4" 
-                        playsInline 
-                        autoPlay
-                        className="w-full h-full object-cover opacity-100" 
-                    />
-                </div>
+              {activeModal === 'account' && (
+                <>
+                  <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <select name="type" defaultValue={editingItem?.type || 'bank'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
+                    <option value="cash">ক্যাশ (নগদ টাকা)</option>
+                    <option value="bank">ব্যাংক</option>
+                    <option value="bkash">বিকাশ/নগদ</option>
+                  </select>
+                  <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                </>
               )}
 
-              {authStatus === 'locked' && (
-                <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
-                  <div className="w-full max-w-sm flex flex-col items-center bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-[2.5rem] shadow-2xl">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/30">
-                      <i className="fas fa-lock text-white text-3xl"></i>
-                    </div>
-                    <h1 className="text-3xl font-extrabold text-white mb-2 tracking-widest drop-shadow-lg text-center">TANIYA'S WORLD <span className="text-yellow-400">✨</span></h1>
-                    <p className="text-gray-200 mb-8 text-center text-sm font-medium">আপনার ব্যক্তিগত জগতে প্রবেশ করুন</p>
-                    
-                    <div className="w-full relative mb-6">
-                      <input
-                        type="password"
-                        value={pinInput}
-                        onChange={(e) => setPinInput(e.target.value)}
-                        className="glass-input w-full rounded-2xl py-4 text-center text-3xl tracking-[0.4em] shadow-inner"
-                      />
-                    </div>
-                    <button onClick={handleMainLogin} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-400 to-rose-500 hover:opacity-90 text-white font-bold text-lg shadow-xl active:scale-95 transition-all">
-                      Unlock
-                    </button>
-                  </div>
-                </div>
+              {activeModal === 'transaction' && (
+                <>
+                  <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                  <select name="accountId" defaultValue={editingItem?.accountId} required className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
+                    <option value="">কোন একাউন্ট থেকে?</option>
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.balance)})</option>)}
+                  </select>
+                  <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
+                  <input type="hidden" name="type" value={editingItem?.type || 'income'} />
+                </>
               )}
 
-              {authStatus === 'unlocked' && (
-                <div className="min-h-screen flex flex-col relative z-10">
-                  <header className="px-6 pt-12 pb-6 sticky top-0 z-30 bg-black/30 backdrop-blur-2xl border-b border-white/10">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h1 className="text-3xl font-extrabold text-white tracking-widest drop-shadow-md">TANIYA'S WORLD</h1>
-                        {currentView !== 'dashboard' && (
-                          <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 text-xs text-white font-bold mt-3 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full hover:bg-white/20 transition-all"><i className="fas fa-chevron-left"></i> ড্যাশবোর্ড</button>
+              {activeModal === 'member' && (
+                <>
+                  <div className="flex flex-col items-center mb-6">
+                     <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
+                        {(uploadedImage || editingItem?.imageUrl) ? (
+                          <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <i className="fas fa-user text-4xl text-white/30"></i>
                         )}
-                      </div>
-                      <button onClick={() => setAuthStatus('locked')} className="w-12 h-12 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-gray-200 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-all"><i className="fas fa-lock"></i></button>
-                    </div>
-                  </header>
-
-                  <main className="px-6 pt-8 pb-12 flex-1">
-                    {currentView === 'dashboard' && renderDashboardCards()}
-                    {currentView === 'finance' && renderFinance()}
-                    {currentView === 'family' && renderMembers()}
-                    {currentView === 'stories' && renderStories()}
-                    {currentView === 'dates' && renderDates()}
-                    {currentView === 'passwords' && renderPasswords()}
-                    {currentView === 'plans' && renderPlans()}
-                  </main>
-                </div>
-              )}
-
-              {actionPinModal.show && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                  <div className="bg-white/10 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
-                    <i className="fas fa-shield-cat text-rose-400 text-5xl mx-auto mb-4"></i>
-                    <h3 className="font-bold text-white mb-6 tracking-wide">{actionPinModal.title}</h3>
-                    <input type="password" value={actionPinInput} onChange={(e)=>setActionPinInput(e.target.value)} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center font-bold tracking-[0.5em] text-xl mb-6 shadow-inner"/>
-                    <div className="flex gap-3">
-                      <button onClick={() => {setActionPinModal({show:false}); setActionPinInput('');}} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-gray-300 transition-all">বাতিল</button>
-                      <button onClick={verifyActionAndExecute} className="flex-1 py-3 bg-rose-500/80 hover:bg-rose-500 border border-rose-500/50 rounded-xl font-bold text-white transition-all shadow-lg">নিশ্চিত করুন</button>
-                    </div>
+                        <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                     </div>
+                     <div className="text-xs text-white bg-white/10 border border-white/20 px-5 py-2.5 rounded-full flex items-center gap-2 tracking-wide shadow-lg">
+                        <i className="fas fa-camera"></i> ছবি নির্বাচন করুন
+                     </div>
                   </div>
-                </div>
+                  <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে...)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
+                </>
               )}
 
-              {passFolderPinModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                  <div className="bg-white/10 backdrop-blur-2xl border border-white/20 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl">
-                    <i className="fas fa-user-secret text-orange-400 text-5xl mx-auto mb-4"></i>
-                    <h3 className="font-bold text-white mb-2 tracking-wide">সিকিউর ফোল্ডার</h3>
-                    <p className="text-xs text-gray-400 mb-6">প্রবেশ করতে পিন প্রয়োজন</p>
-                    <input type="password" value={passPinInput} onChange={(e)=>setPassPinInput(e.target.value)} placeholder="PIN" className="glass-input w-full rounded-xl px-4 py-4 text-center font-bold tracking-[0.5em] text-xl mb-6 shadow-inner"/>
-                    <div className="flex gap-3">
-                      <button onClick={() => setPassFolderPinModal(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-gray-300 transition-all">বাতিল</button>
-                      <button onClick={openPasswordFolder} className="flex-1 py-3 bg-orange-500/80 hover:bg-orange-500 border border-orange-500/50 rounded-xl font-bold text-white transition-all shadow-lg">প্রবেশ করুন</button>
-                    </div>
-                  </div>
-                </div>
+              {activeModal === 'story' && (
+                <>
+                  <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
+                </>
               )}
 
-              {activeModal && (
-                <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/70 backdrop-blur-md sm:items-center sm:justify-center p-0 sm:p-4">
-                  <div className="bg-[#1e293b]/90 backdrop-blur-2xl border border-white/20 w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
-                    <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-xl font-bold text-white tracking-wide">তথ্য আপডেট</h3>
-                      <button onClick={() => setActiveModal(null)} className="w-10 h-10 bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 rounded-full hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all"><i className="fas fa-times"></i></button>
-                    </div>
-
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const fd = new FormData(e.target);
-                      const data = Object.fromEntries(fd.entries());
-                      
-                      let collectionName = '';
-                      if (activeModal === 'account') collectionName = 'finance_accounts';
-                      if (activeModal === 'transaction') collectionName = 'finance_transactions';
-                      if (activeModal === 'member') {
-                         collectionName = 'family_members';
-                         data.imageUrl = uploadedImage || editingItem?.imageUrl || '';
-                      }
-                      if (activeModal === 'story') collectionName = 'stories';
-                      if (activeModal === 'date') collectionName = 'important_dates';
-                      if (activeModal === 'password') collectionName = 'passwords';
-                      if (activeModal === 'plan') collectionName = 'future_plans';
-
-                      if (activeModal === 'transaction') {
-                        const accId = data.accountId;
-                        const acc = accounts.find(a => a.id === accId);
-                        if(acc) {
-                          const amount = Number(data.amount);
-                          let newBalance = Number(acc.balance);
-                          if (data.type === 'income' || data.type === 'borrowed') newBalance += amount;
-                          if (data.type === 'expense' || data.type === 'lent') newBalance -= amount;
-                          saveData('finance_accounts', {...acc, balance: newBalance}, acc.id);
-                        }
-                      }
-
-                      if (editingItem) {
-                        requireSecureAction(() => saveData(collectionName, {...editingItem, ...data}, editingItem.id), 'তথ্য এডিট করতে চান?');
-                      } else {
-                        saveData(collectionName, data);
-                      }
-                    }} className="space-y-4">
-                      
-                      {activeModal === 'account' && (
-                        <>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="একাউন্টের নাম (যেমন: ডাচ বাংলা)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <select name="type" defaultValue={editingItem?.type || 'bank'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
-                            <option value="cash">ক্যাশ (নগদ টাকা)</option>
-                            <option value="bank">ব্যাংক</option>
-                            <option value="bkash">বিকাশ/নগদ</option>
-                          </select>
-                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                        </>
-                      )}
-
-                      {activeModal === 'transaction' && (
-                        <>
-                          <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
-                          <select name="accountId" defaultValue={editingItem?.accountId} required className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
-                            <option value="">কোন একাউন্ট থেকে?</option>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.balance)})</option>)}
-                          </select>
-                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
-                          <input type="hidden" name="type" value={editingItem?.type || 'income'} />
-                        </>
-                      )}
-
-                      {activeModal === 'member' && (
-                        <>
-                          <div className="flex flex-col items-center mb-6">
-                             <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
-                                {(uploadedImage || editingItem?.imageUrl) ? (
-                                  <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
-                                ) : (
-                                  <i className="fas fa-user text-4xl text-white/30"></i>
-                                )}
-                                <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                             </div>
-                             <div className="text-xs font-bold text-white bg-white/10 border border-white/20 px-5 py-2.5 rounded-full flex items-center gap-2 tracking-wide shadow-lg">
-                                <i className="fas fa-camera"></i> ছবি নির্বাচন করুন
-                             </div>
-                          </div>
-                          <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে...)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
-                        </>
-                      )}
-
-                      {activeModal === 'story' && (
-                        <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="গল্পের শিরোনাম" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <textarea name="content" defaultValue={editingItem?.content} placeholder="তোমার মনের ভাবগুলো বিস্তারিত লেখো..." rows={6} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
-                        </>
-                      )}
-
-                      {activeModal === 'date' && (
-                        <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
-                            <option value="জন্মদিন">জন্মদিন</option>
-                            <option value="বিবাহ বার্ষিকী">বিবাহ বার্ষিকী</option>
-                            <option value="মৃত্যু বার্ষিকী">মৃত্যু বার্ষিকী</option>
-                            <option value="অন্যান্য">অন্যান্য</option>
-                          </select>
-                          <input name="date" type="date" defaultValue={editingItem?.date} required className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
-                        </>
-                      )}
-
-                      {activeModal === 'password' && (
-                        <>
-                          <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="password" type="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                        </>
-                      )}
-
-                      {activeModal === 'plan' && (
-                        <>
-                          <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
-                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                        </>
-                      )}
-
-                      <div className="flex gap-3 pt-6">
-                        <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white font-bold transition-all shadow-lg">বাতিল</button>
-                        <button type="submit" className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white font-bold shadow-lg transition-all">সংরক্ষণ করুন</button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
+              {activeModal === 'date' && (
+                <>
+                  <input name="title" defaultValue={editingItem?.title} placeholder="কার জন্মদিন বা বিবাহ বার্ষিকী?" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <select name="type" defaultValue={editingItem?.type || 'জন্মদিন'} className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
+                    <option value="জন্মদিন">জন্মদিন</option>
+                    <option value="বিবাহ বার্ষিকী">বিবাহ বার্ষিকী</option>
+                    <option value="মৃত্যু বার্ষিকী">মৃত্যু বার্ষিকী</option>
+                    <option value="অন্যান্য">অন্যান্য</option>
+                  </select>
+                  <input name="date" type="date" defaultValue={editingItem?.date} required className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                </>
               )}
-            </div>
-          );
-        }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+              {activeModal === 'password' && (
+                <>
+                  <input name="platform" defaultValue={editingItem?.platform} placeholder="প্ল্যাটফর্ম (যেমন: Facebook, Gmail)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="userId" defaultValue={editingItem?.userId} placeholder="ইউজার আইডি বা ইমেইল" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <input name="password" type="password" defaultValue={editingItem?.password} placeholder="পাসওয়ার্ড" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                </>
+              )}
+
+              {activeModal === 'plan' && (
+                <>
+                  <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                  <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
+                  <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                </>
+              )}
+
+              <div className="flex gap-3 pt-6">
+                <button type="button" onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all shadow-lg">বাতিল</button>
+                <button type="submit" className="flex-1 py-4 bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-500/50 rounded-xl text-white shadow-lg transition-all">সংরক্ষণ করুন</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
