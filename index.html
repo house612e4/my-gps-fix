@@ -76,6 +76,12 @@
             { id: "d2", title: "প্রথম বিবাহ বার্ষিকী", type: "বিবাহ বার্ষিকী", date: "2012-02-28" }
         ];
 
+        const toEnglishNumber = (str) => {
+            if (!str) return '';
+            const bengaliToEnglish = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+            return String(str).replace(/[০-৯]/g, match => bengaliToEnglish[match]);
+        };
+
         function App() {
           const videoRef = useRef(null);
           const [user, setUser] = useState(null);
@@ -167,7 +173,7 @@
           }, [user]);
 
           const handleMainLogin = () => {
-            if (pinInput === pins.main) {
+            if (toEnglishNumber(pinInput) === toEnglishNumber(pins.main)) {
               if (videoRef.current) {
                   videoRef.current.currentTime = 0;
                   videoRef.current.play().catch(e => console.log("Video error:", e));
@@ -189,7 +195,7 @@
           };
 
           const verifyActionAndExecute = () => {
-            if (actionPinInput === pins.action) {
+            if (toEnglishNumber(actionPinInput) === toEnglishNumber(pins.action)) {
               if (actionPinModal.action) actionPinModal.action();
               setActionPinModal({ show: false, action: null, title: '' });
               setActionPinInput('');
@@ -203,7 +209,7 @@
           };
 
           const openPasswordFolder = () => {
-            if (passPinInput === pins.password) {
+            if (toEnglishNumber(passPinInput) === toEnglishNumber(pins.password)) {
               setPassFolderPinModal(false);
               setPassPinInput('');
               setCurrentView('passwords');
@@ -244,6 +250,11 @@
             if (!user) return;
             requireSecureAction(async () => {
               await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', collectionName, id));
+              if (collectionName === 'family_members') {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_dob')).catch(e => console.log(e));
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_marriage')).catch(e => console.log(e));
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_death')).catch(e => console.log(e));
+              }
             }, 'এই তথ্যটি মুছে ফেলতে চান?');
           };
 
@@ -258,6 +269,11 @@
             try {
               const fd = new FormData(e.target);
               const data = Object.fromEntries(fd.entries());
+              
+              if(data.main) data.main = toEnglishNumber(data.main);
+              if(data.action) data.action = toEnglishNumber(data.action);
+              if(data.password) data.password = toEnglishNumber(data.password);
+
               const ref = doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'settings', 'pins');
               await setDoc(ref, data);
               setActiveModal(null);
@@ -292,7 +308,24 @@
             reader.readAsDataURL(file);
           };
 
-          const formatMoney = (amount) => `৳ ${Number(amount).toLocaleString('en-IN')}`;
+          const formatMoney = (amount) => {
+            const englishAmount = toEnglishNumber(amount);
+            return `৳ ${Number(englishAmount || 0).toLocaleString('en-IN')}`;
+          };
+
+          const getAccountCurrentBalance = (accId) => {
+            const acc = accounts.find(a => a.id === accId);
+            if (!acc) return 0;
+            let currentBalance = Number(toEnglishNumber(acc.balance) || 0);
+            transactions.forEach(t => {
+                if (t.accountId === accId) {
+                    const amount = Number(toEnglishNumber(t.amount) || 0);
+                    if (t.type === 'income' || t.type === 'borrowed') currentBalance += amount;
+                    if (t.type === 'expense' || t.type === 'lent') currentBalance -= amount;
+                }
+            });
+            return currentBalance;
+          };
 
           const calculateFinance = () => {
             let income = 0;
@@ -300,11 +333,13 @@
             let totalBalance = 0;
 
             transactions.forEach(t => {
-              if (t.type === 'income' || t.type === 'borrowed') income += Number(t.amount);
-              if (t.type === 'expense' || t.type === 'lent') expense += Number(t.amount);
+              const amount = Number(toEnglishNumber(t.amount) || 0);
+              if (t.type === 'income' || t.type === 'borrowed') income += amount;
+              if (t.type === 'expense' || t.type === 'lent') expense += amount;
             });
+            
             accounts.forEach(a => {
-              totalBalance += Number(a.balance);
+              totalBalance += getAccountCurrentBalance(a.id);
             });
 
             return { income, expense, totalBalance };
@@ -374,24 +409,27 @@
                 {financeSubView === 'accounts' && (
                   <div className="space-y-4">
                     <button onClick={() => openModal('account')} className="w-full py-4 bg-teal-500/20 border border-teal-400/30 backdrop-blur-md rounded-xl flex justify-center items-center gap-2 hover:bg-teal-500/40 text-white transition-all shadow-lg"><i className="fas fa-plus"></i> নতুন একাউন্ট</button>
-                    {accounts.map(acc => (
-                      <div key={acc.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex justify-between items-center shadow-lg">
-                        <div>
-                          <h4 className="text-white flex items-center gap-2">
-                            <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns text-blue-300' : acc.type === 'bkash' ? 'fa-mobile-screen text-pink-300' : 'fa-wallet text-emerald-300'}`}></i> 
-                            {acc.name}
-                          </h4>
-                          <p className="text-xs text-gray-400 mt-1 capitalize">{acc.type}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg text-white">{formatMoney(acc.balance)}</p>
-                          <div className="mt-2">
-                              <button onClick={() => requireSecureAction(() => openModal('account', acc), 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 hover:text-white px-2"><i className="fas fa-pen"></i></button>
-                              <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
+                    {accounts.map(acc => {
+                      const currentBal = getAccountCurrentBalance(acc.id);
+                      return (
+                        <div key={acc.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex justify-between items-center shadow-lg">
+                          <div>
+                            <h4 className="text-white flex items-center gap-2">
+                              <i className={`fas ${acc.type === 'bank' ? 'fa-building-columns text-blue-300' : acc.type === 'bkash' ? 'fa-mobile-screen text-pink-300' : 'fa-wallet text-emerald-300'}`}></i> 
+                              {acc.name}
+                            </h4>
+                            <p className="text-xs text-gray-400 mt-1 capitalize">{acc.type}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg text-white">{formatMoney(currentBal)}</p>
+                            <div className="mt-2">
+                                <button onClick={() => requireSecureAction(() => openModal('account', acc), 'একাউন্ট আপডেট করতে চান?')} className="text-xs text-gray-300 hover:text-white px-2"><i className="fas fa-pen"></i></button>
+                                <button onClick={() => deleteData('finance_accounts', acc.id)} className="text-xs text-rose-400 hover:text-rose-300 ml-2"><i className="fas fa-trash"></i></button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 
@@ -696,6 +734,10 @@
                       const fd = new FormData(e.target);
                       const data = Object.fromEntries(fd.entries());
                       
+                      if(data.amount) data.amount = toEnglishNumber(data.amount);
+                      if(data.balance) data.balance = toEnglishNumber(data.balance);
+                      if(data.budget) data.budget = toEnglishNumber(data.budget);
+
                       let collectionName = '';
                       if (activeModal === 'account') collectionName = 'finance_accounts';
                       if (activeModal === 'transaction') collectionName = 'finance_transactions';
@@ -713,17 +755,31 @@
                         const acc = accounts.find(a => a.id === accId);
                         if(acc) {
                           const amount = Number(data.amount);
-                          let newBalance = Number(acc.balance);
+                          let newBalance = Number(toEnglishNumber(acc.balance));
                           if (data.type === 'income' || data.type === 'borrowed') newBalance += amount;
                           if (data.type === 'expense' || data.type === 'lent') newBalance -= amount;
-                          saveData('finance_accounts', {...acc, balance: newBalance}, acc.id);
+                          saveData('finance_accounts', {...acc, balance: String(newBalance)}, acc.id);
                         }
                       }
 
+                      const docId = editingItem ? editingItem.id : Date.now().toString();
+
                       if (editingItem) {
-                        requireSecureAction(() => saveData(collectionName, {...editingItem, ...data}, editingItem.id), 'তথ্য এডিট করতে চান?');
+                        requireSecureAction(async () => {
+                          await saveData(collectionName, {...editingItem, ...data}, docId);
+                          if (activeModal === 'member') {
+                            if (data.dob) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_dob'), { title: `${data.name} এর জন্মদিন`, type: 'জন্মদিন', date: data.dob });
+                            if (data.marriageDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                            if (data.deathDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_death'), { title: `${data.name} এর মৃত্যু বার্ষিকী`, type: 'মৃত্যু বার্ষিকী', date: data.deathDate });
+                          }
+                        }, 'তথ্য এডিট করতে চান?');
                       } else {
-                        await saveData(collectionName, data);
+                        await saveData(collectionName, data, docId);
+                        if (activeModal === 'member') {
+                          if (data.dob) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_dob'), { title: `${data.name} এর জন্মদিন`, type: 'জন্মদিন', date: data.dob });
+                          if (data.marriageDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                          if (data.deathDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_death'), { title: `${data.name} এর মৃত্যু বার্ষিকী`, type: 'মৃত্যু বার্ষিকী', date: data.deathDate });
+                        }
                       }
                     }} className="space-y-4">
                       
@@ -741,18 +797,18 @@
                             <option value="bank">ব্যাংক</option>
                             <option value="bkash">বিকাশ/নগদ</option>
                           </select>
-                          <input name="balance" type="number" defaultValue={editingItem?.balance || 0} placeholder="বর্তমান ব্যালেন্স" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                          <input name="balance" type="text" inputMode="numeric" defaultValue={editingItem?.balance || 0} placeholder="প্রারম্ভিক ব্যালেন্স (অ্যাকাউন্ট খোলার সময়ের ব্যালেন্স)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
                         </>
                       )}
 
                       {activeModal === 'transaction' && (
                         <>
                           <input name="source" defaultValue={editingItem?.source} placeholder={editingItem?.type==='income'?'আয়ের উৎস (যেমন বেতন)':editingItem?.type==='expense'?'ব্যয়ের নাম (যেমন বাজার)':editingItem?.type==='borrowed'?'কার কাছ থেকে ধার নিয়েছো?':'কাকে ধার দিয়েছো / কোন দোকানে বাকি?'} required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="amount" type="number" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                          <input name="amount" type="text" inputMode="numeric" defaultValue={editingItem?.amount} placeholder="টাকার পরিমান" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
                           <input name="date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
                           <select name="accountId" defaultValue={editingItem?.accountId} required className="glass-input w-full rounded-xl p-4 shadow-inner [&>option]:bg-slate-800">
                             <option value="">কোন একাউন্ট থেকে?</option>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.balance)})</option>)}
+                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatMoney(getAccountCurrentBalance(a.id))})</option>)}
                           </select>
                           <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত বিবরণ বা বাজারের লিস্ট..." rows={3} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
                           <input type="hidden" name="type" value={editingItem?.type || 'income'} />
@@ -762,7 +818,7 @@
                       {activeModal === 'member' && (
                         <>
                           <div className="flex flex-col items-center mb-6">
-                             <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
+                             <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
                                 {(uploadedImage || editingItem?.imageUrl) ? (
                                   <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -776,7 +832,24 @@
                           </div>
                           <input name="name" defaultValue={editingItem?.name} placeholder="নাম" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
                           <input name="relation" defaultValue={editingItem?.relation} placeholder="সম্পর্ক (আমি, স্বামী, স্ত্রী, ছেলে...)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <input name="mobile" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                          
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="relative">
+                              <label className="block text-xs text-gray-400 mb-1 ml-1">জন্ম তারিখ (ঐচ্ছিক)</label>
+                              <input name="dob" type="date" defaultValue={editingItem?.dob} className="glass-input w-full rounded-xl p-3 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                            </div>
+                            <div className="relative">
+                              <label className="block text-xs text-gray-400 mb-1 ml-1">মৃত্যু তারিখ (ঐচ্ছিক)</label>
+                              <input name="deathDate" type="date" defaultValue={editingItem?.deathDate} className="glass-input w-full rounded-xl p-3 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                            </div>
+                          </div>
+                          
+                          <div className="relative">
+                            <label className="block text-xs text-gray-400 mb-1 ml-1">বিবাহের তারিখ (ঐচ্ছিক)</label>
+                            <input name="marriageDate" type="date" defaultValue={editingItem?.marriageDate} className="glass-input w-full rounded-xl p-4 shadow-inner [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" />
+                          </div>
+
+                          <input name="mobile" type="text" inputMode="numeric" defaultValue={editingItem?.mobile} placeholder="মোবাইল নাম্বার" className="glass-input w-full rounded-xl p-4 shadow-inner" />
                           <textarea name="note" defaultValue={editingItem?.note} placeholder="বিস্তারিত ঠিকানা, পেশা ইত্যাদি..." rows={4} className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
                         </>
                       )}
@@ -812,8 +885,8 @@
                       {activeModal === 'plan' && (
                         <>
                           <input name="title" defaultValue={editingItem?.title} placeholder="পরিকল্পনার নাম (যেমন: সিলেট ট্যুর)" required className="glass-input w-full rounded-xl p-4 shadow-inner" />
-                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে, দাওয়াতের মেনু ইত্যাদি)..." rows={4} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
-                          <input name="budget" type="number" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="glass-input w-full rounded-xl p-4 shadow-inner" />
+                          <textarea name="details" defaultValue={editingItem?.details} placeholder="বিস্তারিত (কবে যাবে, কাদের সাথে ইত্যাদি)..." rows={4} required className="glass-input w-full rounded-xl p-4 resize-none shadow-inner"></textarea>
+                          <input name="budget" type="text" inputMode="numeric" defaultValue={editingItem?.budget} placeholder="সম্ভাব্য খরচ (ঐচ্ছিক)" className="glass-input w-full rounded-xl p-4 shadow-inner" />
                         </>
                       )}
 
