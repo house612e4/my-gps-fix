@@ -252,6 +252,7 @@
               await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', collectionName, id));
               if (collectionName === 'family_members') {
                 await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_dob')).catch(e => console.log(e));
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', 'our_marriage_anniversary')).catch(e => console.log(e));
                 await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_marriage')).catch(e => console.log(e));
                 await deleteDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', id + '_death')).catch(e => console.log(e));
               }
@@ -529,8 +530,8 @@
               {dates.map(d => (
                 <div key={d.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
                   <div className="w-14 h-14 bg-black/20 border border-white/10 rounded-2xl flex flex-col items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] text-amber-300 uppercase tracking-widest">{new Date(d.date).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-xl text-white leading-none mt-1">{new Date(d.date).getDate()}</span>
+                    <span className="text-[10px] text-amber-300 uppercase tracking-widest">{new Date(d.date + 'T00:00:00').toLocaleString('en-US', { month: 'short' })}</span>
+                    <span className="text-xl text-white leading-none mt-1">{new Date(d.date + 'T00:00:00').getDate()}</span>
                   </div>
                   <div className="flex-1">
                     <h4 className="text-white">{d.title}</h4>
@@ -769,7 +770,16 @@
                           await saveData(collectionName, {...editingItem, ...data}, docId);
                           if (activeModal === 'member') {
                             if (data.dob) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_dob'), { title: `${data.name} এর জন্মদিন`, type: 'জন্মদিন', date: data.dob });
-                            if (data.marriageDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                            
+                            if (data.marriageDate) {
+                                const rel = data.relation.trim();
+                                if(rel === 'আমি' || rel === 'স্ত্রী' || rel === 'স্বামী' || rel === 'স্বামী সাবেক') {
+                                    await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', 'our_marriage_anniversary'), { title: `আমাদের বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                                } else {
+                                    await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                                }
+                            }
+                            
                             if (data.deathDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_death'), { title: `${data.name} এর মৃত্যু বার্ষিকী`, type: 'মৃত্যু বার্ষিকী', date: data.deathDate });
                           }
                         }, 'তথ্য এডিট করতে চান?');
@@ -777,7 +787,16 @@
                         await saveData(collectionName, data, docId);
                         if (activeModal === 'member') {
                           if (data.dob) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_dob'), { title: `${data.name} এর জন্মদিন`, type: 'জন্মদিন', date: data.dob });
-                          if (data.marriageDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                          
+                          if (data.marriageDate) {
+                                const rel = data.relation.trim();
+                                if(rel === 'আমি' || rel === 'স্ত্রী' || rel === 'স্বামী' || rel === 'স্বামী সাবেক') {
+                                    await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', 'our_marriage_anniversary'), { title: `আমাদের বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                                } else {
+                                    await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_marriage'), { title: `${data.name} এর বিবাহ বার্ষিকী`, type: 'বিবাহ বার্ষিকী', date: data.marriageDate });
+                                }
+                          }
+                          
                           if (data.deathDate) await setDoc(doc(db, 'artifacts', appId, 'users', 'taniya_admin_123', 'important_dates', docId + '_death'), { title: `${data.name} এর মৃত্যু বার্ষিকী`, type: 'মৃত্যু বার্ষিকী', date: data.deathDate });
                         }
                       }
@@ -818,7 +837,7 @@
                       {activeModal === 'member' && (
                         <>
                           <div className="flex flex-col items-center mb-6">
-                             <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
+                             <div className="w-28 h-28 rounded-full bg-black/40 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden mb-4 relative group shadow-inner">
                                 {(uploadedImage || editingItem?.imageUrl) ? (
                                   <img src={uploadedImage || editingItem?.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
